@@ -1,0 +1,25 @@
+[project]
+name = "novel-agent"
+version = "0.1.0"
+description = "帮助网文作者半自动/自动写作长篇小说的 Agent"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=0.40",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "openai>=1.40",
+    "numpy>=1.26",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+]
+
+[project.scripts]
+novel = "novel_agent.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["novel_agent*"]

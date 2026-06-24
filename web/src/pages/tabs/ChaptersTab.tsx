@@ -56,16 +56,20 @@ export function ChaptersTab({
     : 0;
   const allPlannedWritten = plannedMax > 0 && writtenMax >= plannedMax;
 
-  const startWrite = async (opts: { words: number }) => {
+  const startWrite = async (opts: { words: number; author_note: string }) => {
     setShowWrite(false);
-    const { task_id } = await api.write(slug, { chapter: 0, words: opts.words });
+    const { task_id } = await api.write(slug, { chapter: 0, ...opts });
     onTask(task_id, "写下一章");
   };
   const extendOutline = async () => {
     const { task_id } = await api.extendOutline(slug, 10);
     onTask(task_id, "续写大纲（10 章）");
   };
-  const startBatch = async (opts: { count: number; words: number }) => {
+  const startBatch = async (opts: {
+    count: number;
+    words: number;
+    author_note: string;
+  }) => {
     setShowBatch(false);
     const { task_id } = await api.run(slug, opts);
     onTask(
@@ -138,7 +142,7 @@ export function ChaptersTab({
         {sel === null && <p className="muted">从左侧选一章查看。</p>}
         {ch && (
           <>
-            <div className="spread" style={{ marginBottom: 12 }}>
+            <div className="spread" style={{ marginBottom: 4 }}>
               <h2 style={{ margin: 0 }}>
                 第 {ch.index} 章 {ch.title}
               </h2>
@@ -155,6 +159,10 @@ export function ChaptersTab({
                   <button onClick={() => setEditing(true)}>编辑</button>
                 )}
               </div>
+            </div>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+              共 {countWords(text)} 字
+              {editing && <span>（编辑中，实时统计）</span>}
             </div>
             {editing ? (
               <textarea
@@ -180,4 +188,12 @@ export function ChaptersTab({
       )}
     </div>
   );
+}
+
+// 统计正文字数：去掉开头的「# 第 N 章 标题」行，再去掉所有空白字符后计长度。
+// 中文按字符计，符合网文"字数"的直觉。
+function countWords(raw: string): number {
+  if (!raw) return 0;
+  const body = raw.replace(/^\s*#.*\n/, "");
+  return body.replace(/\s/g, "").length;
 }

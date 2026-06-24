@@ -22,16 +22,20 @@ export function OverviewTab({
   if (!ov) return <p className="muted">加载中…</p>;
   const st = ov.state ?? {};
 
-  const startWrite = async (opts: { words: number }) => {
+  const startWrite = async (opts: { words: number; author_note: string }) => {
     setShowWrite(false);
-    const { task_id } = await api.write(slug, { chapter: 0, words: opts.words });
+    const { task_id } = await api.write(slug, { chapter: 0, ...opts });
     onTask(task_id, "写下一章");
   };
   const extendOutline = async () => {
     const { task_id } = await api.extendOutline(slug, 10);
     onTask(task_id, "续写大纲（10 章）");
   };
-  const startBatch = async (opts: { count: number; words: number }) => {
+  const startBatch = async (opts: {
+    count: number;
+    words: number;
+    author_note: string;
+  }) => {
     setShowBatch(false);
     const { task_id } = await api.run(slug, opts);
     onTask(

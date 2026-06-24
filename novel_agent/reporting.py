@@ -105,8 +105,10 @@ class QueueReporter:
         self._emit("error", message, data)
 
     def done(self, message: str = "", **data) -> None:
+        # 只发"完成"事件，不放结束哨兵——批量写作里每章都会调 done，
+        # 哨兵只应在整个任务真正结束时由 close() 放，否则 SSE 流会被
+        # 第一章的 done 提前掐断。
         self._emit("done", message, data)
-        self.queue.put(None)  # 哨兵：通知 SSE 流结束
 
     def delta(self, text: str) -> None:
         # 正文增量只入队（供 SSE 即时推送），不存入 events 历史，
@@ -114,5 +116,5 @@ class QueueReporter:
         self.queue.put(Event(kind="delta", message=text, data={}))
 
     def close(self) -> None:
-        """异常兜底：确保 SSE 流能结束。"""
+        """任务真正结束：放结束哨兵，通知 SSE 流收尾。"""
         self.queue.put(None)

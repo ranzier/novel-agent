@@ -60,10 +60,11 @@ export function useTaskStream(taskId: string | null) {
           return next;
         });
 
+        // done 事件只表示"某一步/某一章完成"，不代表整个任务结束
+        // （批量写作每章都会 done）。记下最近一次 done 的数据，但任务是否
+        // 真正结束由流关闭（es.onerror）判定，避免第一章后就误判完成。
         if (ev.kind === "done") {
           setDoneData(ev.data ?? {});
-          setFinished(true);
-          es.close();
         }
       } catch {
         /* ignore malformed */

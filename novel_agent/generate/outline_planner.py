@@ -1,8 +1,9 @@
-"""大纲规划：分层生成。
+"""大纲规划：骨架 + 滑动窗口式章节细纲。
 
-两阶段，避免一次性让模型规划几百章导致空泛/崩坏：
-  1) 骨架：全书主线 + 各卷弧光（粗）
-  2) 细化：按卷展开章节细纲（细），可逐卷按需生成
+设计：
+  1) 骨架：全书主线 + 各卷弧光（粗，轻量，可规划多卷，不锁死细节）
+  2) 章节细纲：滑动窗口式——只生成"从当前往后 N 章"，不一次铺满全书。
+     这样后期剧情不会被早期规划绑架；写完一个窗口再基于实际进度续写下一窗口。
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import json
 
 from ..bible import Bible
 from ..llm import LLMGateway
+from ..memory.state_models import WorldState
 from ..storage import _to_plain
 from .outline_models import Outline, Volume
 
@@ -88,13 +90,18 @@ _CHAPTERS_PROMPT = """这是一本中文网络小说的设定与本卷信息。
 def generate_skeleton(
     gateway: LLMGateway, bible: Bible, volumes: int = 5
 ) -> Outline:
-    """生成全书骨架（主线 + 各卷弧光，不含章节细纲）。"""
+    """生成全书骨架（主线 + 各卷弧光）。弧光存入 arc_plan 作方向参考，
+    不直接承载章节——章节由滑动窗口生成后追加到 volumes。"""
     bible_json = json.dumps(_to_plain(bible), ensure_ascii=False, indent=2)
     prompt = _SKELETON_PROMPT.format(bible_json=bible_json, volumes=volumes)
     data = gateway.complete_json(
         prompt, system=_SYSTEM, task="outline", max_tokens=4096
     )
-    return Outline.from_dict(data)
+    outline = Outline.from_dict(data)
+    # 模型按 _SKELETON_PROMPT 把卷弧光放在 volumes 里；移到 arc_plan。
+    outline.arc_plan = outline.volumes
+    outline.volumes = []
+    return outline
 
 
 def generate_volume_chapters(
@@ -140,3 +147,127 @@ def generate_volume_chapters(
         }
     )
     return filled
+
+
+# ---------------- 滑动窗口式章节细纲 ----------------
+
+_WINDOW_PROMPT = """这是一本中文网络小说，现在要规划【接下来 {count} 章】的章节细纲。
+
+【设定圣经摘要】
+书名：{title}（{genre}）
+基调：{tone}
+力量体系层级：{tiers}
+
+【全书主线】
+{main_plot}
+
+【卷级骨架】（章节要服务于当前所处卷的弧光，自然向其高潮推进）
+{volumes_brief}
+
+【当前进度与世界状态】
+{progress}
+
+【已知角色】
+{characters}
+
+请规划从第 {start_index} 章开始、连续 {count} 章的细纲。章节序号从 {start_index} 连续编号。
+这批章节会作为新的一卷，请同时为这一卷起个卷名、概括其弧光。
+只输出如下结构的 JSON：
+{{
+  "volume_title": "这一卷的卷名",
+  "volume_arc": "这一卷的弧光/核心情节（一句话）",
+  "chapters": [
+    {{
+      "index": {start_index},
+      "title": "章节标题",
+      "summary": "本章主要情节（80字内）",
+      "goal": "本章叙事目的",
+      "hook": "章末钩子（留悬念）",
+      "characters": ["出场角色名"],
+      "cool_point": "本章爽点（如有，无则留空）"
+    }}
+  ]
+}}
+
+要求：
+- 紧承"当前进度与世界状态"，与已发生的剧情自然衔接，不与既成事实矛盾。
+- 主角境界从当前状态出发稳步推进，不跳级、不倒退。
+- 章节层层推进、每隔几章一个爽点、章末都要有钩子。
+- 出场角色尽量用【已知角色】里的名字；已死亡角色不可再出场。"""
+
+
+def _volumes_brief(outline: Outline) -> str:
+    lines = []
+    for v in outline.arc_plan:
+        lines.append(
+            f"第{v.index}卷《{v.title}》：{v.arc}"
+            f"（境界 {v.start_tier}→{v.end_tier}，高潮：{v.climax}）"
+        )
+    return "\n".join(lines) or "（暂无骨架）"
+
+
+def _progress_brief(state: WorldState, last_written: int) -> str:
+    if last_written <= 0 or state.last_chapter <= 0:
+        return "尚未开写，这是开篇阶段。"
+    parts = [f"已写到第 {last_written} 章。"]
+    if state.timeline:
+        parts.append(f"故事时间：{state.timeline}")
+    if state.protagonist_tier:
+        parts.append(f"主角当前境界：{state.protagonist_tier}")
+    if state.protagonist_location:
+        parts.append(f"主角当前位置：{state.protagonist_location}")
+    dead = [c.name for c in state.characters if c.status == "死亡"]
+    if dead:
+        parts.append(f"已死亡角色（不可再出场）：{'、'.join(dead)}")
+    if state.open_threads:
+        parts.append("进行中的冲突/任务：" + "；".join(state.open_threads))
+    if state.foreshadowing:
+        parts.append("未回收伏笔：" + "；".join(state.foreshadowing))
+    return "\n".join(parts)
+
+
+def generate_chapter_window(
+    gateway: LLMGateway,
+    bible: Bible,
+    outline: Outline,
+    *,
+    start_index: int,
+    count: int,
+    character_names: list[str],
+    state: WorldState | None = None,
+) -> dict:
+    """滑动窗口：生成从 start_index 起连续 count 章的细纲。
+
+    基于设定 + 卷骨架 + 当前进度/世界状态，让新章节贴合实际剧情走向，
+    而非被早期一次性规划绑架。返回 {title, arc, chapters}，
+    由调用方作为「新的一卷」并入大纲。
+    """
+    tiers = " → ".join(t.name for t in bible.power_system.tiers) or "（未定义）"
+    last_written = (state.last_chapter if state else 0)
+    prompt = _WINDOW_PROMPT.format(
+        title=bible.title,
+        genre=bible.genre,
+        tone=bible.tone,
+        tiers=tiers,
+        main_plot=outline.main_plot or "（未定义）",
+        volumes_brief=_volumes_brief(outline),
+        progress=_progress_brief(state or WorldState(), last_written),
+        characters="、".join(character_names) or "（暂无）",
+        count=count,
+        start_index=start_index,
+    )
+    data = gateway.complete_json(
+        prompt, system=_SYSTEM, task="outline", max_tokens=8192
+    )
+    if not isinstance(data, dict):
+        data = {}
+    chapters = data.get("chapters", [])
+    # 兜底：强制章节号连续，防止模型编错号
+    for offset, ch in enumerate(chapters):
+        if isinstance(ch, dict):
+            ch["index"] = start_index + offset
+    return {
+        "title": data.get("volume_title", ""),
+        "arc": data.get("volume_arc", ""),
+        "chapters": chapters[:count],
+    }

@@ -10,6 +10,7 @@ from .extractor import consolidate
 from .embedder import Embedder, EmbedError
 from .vector import VectorStore, Chunk, SearchHit
 from .retrieval import split_chapter, index_chapter, recall_block
+from .promote import promote_characters
 
 __all__ = [
     "recent_context",
@@ -27,4 +28,5 @@ __all__ = [
     "split_chapter",
     "index_chapter",
     "recall_block",
+    "promote_characters",
 ]

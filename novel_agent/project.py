@@ -154,6 +154,30 @@ class Project:
         summaries.sort(key=lambda s: s.index)
         self.save_summaries(summaries)
 
+    def sync_outline_from_summary(self, summary: ChapterSummary) -> bool:
+        """用写后抽取的章节摘要回写大纲细纲，使大纲反映实际写出的内容。
+
+        正文可能偏离原细纲（尤其作者注入思路后），这里把该章的
+        summary/characters 同步成实际内容。title/goal/hook/cool_point 不动
+        （它们是规划意图，保留）。返回是否有改动。
+        """
+        if not self.has_outline() or summary is None:
+            return False
+        outline = self.load_outline()
+        ch = outline.chapter(summary.index)
+        if ch is None:
+            return False
+        changed = False
+        if summary.summary and summary.summary != ch.summary:
+            ch.summary = summary.summary
+            changed = True
+        if summary.characters and summary.characters != ch.characters:
+            ch.characters = list(summary.characters)
+            changed = True
+        if changed:
+            self.save_outline(outline)
+        return changed
+
     def save_review(self, review_dict: dict) -> None:
         """记录某章的校验结果（按章节号覆盖）。"""
         chapter = review_dict.get("chapter")

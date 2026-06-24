@@ -36,6 +36,7 @@ class WriteBody(BaseModel):
     no_vector: bool = False
     no_consolidate: bool = False
     max_rewrites: int = 1
+    author_note: str = ""
 
 
 class RunBody(BaseModel):
@@ -45,6 +46,7 @@ class RunBody(BaseModel):
     max_rewrites: int = 1
     stop_on_error: bool = False
     no_vector: bool = False
+    author_note: str = ""
 
 
 def create_app() -> FastAPI:
@@ -397,7 +399,8 @@ def create_app() -> FastAPI:
                 gw, p, chapter=chapter, title=ch.title, words=body.words,
                 consolidate_mem=not body.no_consolidate,
                 do_review=not body.no_review, max_rewrites=body.max_rewrites,
-                use_vector=not body.no_vector, reporter=rep,
+                use_vector=not body.no_vector, author_note=body.author_note,
+                reporter=rep,
             )
             return result
 
@@ -434,7 +437,8 @@ def create_app() -> FastAPI:
                     gw, p, chapter=idx, title=ch.title, words=body.words,
                     consolidate_mem=True, do_review=True,
                     max_rewrites=body.max_rewrites,
-                    use_vector=not body.no_vector, reporter=rep,
+                    use_vector=not body.no_vector,
+                    author_note=body.author_note, reporter=rep,
                 )
                 if r is None:
                     rep.warn("本章写作失败，中止批量续写")

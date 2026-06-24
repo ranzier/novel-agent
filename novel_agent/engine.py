@@ -24,6 +24,7 @@ def write_one_chapter(
     do_review: bool,
     max_rewrites: int,
     use_vector: bool = True,
+    author_note: str = "",
     reporter: Reporter | None = None,
 ) -> dict | None:
     """写一章的完整闭环。成功返回结果字典，失败返回 None。"""
@@ -52,7 +53,10 @@ def write_one_chapter(
             try:
                 rep.step("向量召回相关历史片段")
                 recall_text = recall_block(
-                    store, embedder, query=query, before_chapter=chapter
+                    store, embedder, query=query, before_chapter=chapter,
+                    exclude_recent=gateway.config.recent_chapters,
+                    top_k=gateway.config.recall_top_k,
+                    min_score=gateway.config.recall_min_score,
                 )
                 if recall_text:
                     rep.info(f"召回 {recall_text.count('· [')} 段相关历史片段")
@@ -91,7 +95,7 @@ def write_one_chapter(
             text = chapter_writer.write_chapter(
                 gateway, project, index=chapter, words=words,
                 revision_note=revision_note, recall_text=recall_text,
-                pacing_text=pacing_text,
+                pacing_text=pacing_text, author_note=author_note,
                 on_delta=getattr(rep, "delta", None),
             )
         except (LLMError, ValueError) as e:
@@ -142,6 +146,12 @@ def write_one_chapter(
     if consolidate_mem and new_state is not None and not has_unresolved_errors:
         project.upsert_summary(summary)
         project.save_state(new_state)
+        # 用实际写出的内容回写大纲细纲，使大纲与正文一致
+        try:
+            if project.sync_outline_from_summary(summary):
+                rep.info("已据正文更新本章大纲摘要")
+        except Exception as e:  # noqa: BLE001 - 同步失败不影响主流程
+            rep.warn(f"大纲摘要同步失败（已跳过）：{e}")
         tier = new_state.protagonist_tier or "—"
         fore = len(new_state.foreshadowing)
         dead = [c.name for c in new_state.characters if c.status == "死亡"]
@@ -149,6 +159,20 @@ def write_one_chapter(
             f"记忆已更新：主角境界 {tier}；未回收伏笔 {fore} 条"
             + (f"；已故 {'、'.join(dead)}" if dead else "")
         )
+
+        # 角色库自动晋升：把反复出场且被状态追踪的新角色补进角色库
+        from .memory import promote_characters
+
+        try:
+            book = project.load_characters()
+            added = promote_characters(
+                book, project.load_summaries(), new_state
+            )
+            if added:
+                project.save_characters(book)
+                rep.info(f"角色库新增：{'、'.join(added)}")
+        except Exception as e:  # noqa: BLE001 - 晋升失败不影响主流程
+            rep.warn(f"角色库自动收录失败（已跳过）：{e}")
 
     # 校验结果
     if review is not None:

@@ -17,7 +17,8 @@ from ..project import Project
 _SYSTEM = """你是顶尖中文网络小说写手，文笔流畅、画面感强、节奏明快。
 你严格遵守既定设定与大纲，绝不擅自更改人物境界、关系或世界规则。
 写作要求：
-- 用第三人称、过去式叙事，对话自然，动作与心理描写到位。
+- 用第三人称、过去式叙事，对话自然。描写详略由"基调"决定——
+  爽文偏紧凑明快、重情节推进与爽点；细腻向可多铺陈心理与场景。不堆砌无关细节。
 - 紧扣本章细纲的情节与目的，章末落在指定的钩子上。
 - 与上一章的结尾自然衔接，不重复已写过的情节。
 - 只输出正文本身，不要标题、不要大纲、不要任何解释或评论。"""
@@ -49,8 +50,20 @@ _PROMPT = """【设定摘要】
 章末钩子：{hook}
 出场角色：{ch_chars}
 
-{pacing}
+{author_note}{pacing}
 请写出第 {index} 章的正文，约 {words} 字。直接开始写正文。"""
+
+
+def _author_note_block(note: str) -> str:
+    """作者对本章的思路/要求，高优先级注入。空则不注入。"""
+    note = (note or "").strip()
+    if not note:
+        return ""
+    return (
+        "【作者本章要求（高优先级，须优先满足，可在不违背既定设定/世界状态的"
+        "前提下灵活调整细纲情节以贴合作者意图）】\n"
+        f"{note}\n\n"
+    )
 
 
 def _relevant_characters(
@@ -94,6 +107,7 @@ def write_chapter(
     revision_note: str = "",
     recall_text: str = "",
     pacing_text: str = "",
+    author_note: str = "",
     on_delta=None,
 ) -> str:
     """生成第 index 章正文并返回文本（不落盘，由调用方决定保存）。
@@ -109,15 +123,23 @@ def write_chapter(
         raise ValueError(f"大纲里没有第 {index} 章，请先扩展大纲。")
     vol = _find_volume(outline, index)
 
+    # 上下文参数来自配置（可在配置页调整）
+    from ..config import Config
+
+    cfg = Config.load()
+    recent_n = cfg.recent_chapters
+
     recent = recent_context(
-        project, index, max_chapters=max_chapters_context
+        project, index,
+        max_chapters=recent_n, char_budget=cfg.recent_char_budget,
     )
 
     # 中期记忆：世界状态快照 + 早期章节摘要 + 未回收伏笔
     state = project.load_state()
     summaries = project.load_summaries()
     mid_term = mid_term_block(
-        summaries, state, before_index=index, skip_recent=max_chapters_context
+        summaries, state, before_index=index,
+        skip_recent=recent_n, max_summaries=cfg.summary_count,
     )
 
     tiers = " → ".join(t.name for t in bible.power_system.tiers) or "（未定义）"
@@ -144,6 +166,7 @@ def write_chapter(
         cool_point=ch.cool_point or "（无）",
         hook=ch.hook,
         ch_chars="、".join(ch.characters) or "（见细纲）",
+        author_note=_author_note_block(author_note),
         pacing=(pacing_text + "\n") if pacing_text else "",
         words=words,
     )

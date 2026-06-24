@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
+import { BatchModal } from "../../components/BatchModal";
+import { WriteChapterModal } from "../../components/WriteChapterModal";
 import type { RunningTask } from "../Workspace";
 
 export function ChaptersTab({
@@ -14,10 +16,17 @@ export function ChaptersTab({
     queryKey: ["chapters", slug],
     queryFn: () => api.chapters(slug),
   });
+  const { data: outline } = useQuery({
+    queryKey: ["outline", slug],
+    queryFn: () => api.outline(slug),
+    retry: false,
+  });
   const [sel, setSel] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
+  const [showBatch, setShowBatch] = useState(false);
+  const [showWrite, setShowWrite] = useState(false);
 
   const { data: ch } = useQuery({
     queryKey: ["chapter", slug, sel],
@@ -33,13 +42,36 @@ export function ChaptersTab({
     }
   }, [ch]);
 
-  const writeNext = async () => {
-    const { task_id } = await api.write(slug, { chapter: 0 });
+  // 大纲已规划到第几章 vs 已写到第几章 → 是否还有"下一章"可写
+  const plannedMax = outline
+    ? Math.max(
+        0,
+        ...(outline.volumes ?? []).flatMap((v: any) =>
+          (v.chapters ?? []).map((c: any) => c.index),
+        ),
+      )
+    : 0;
+  const writtenMax = chapters?.length
+    ? Math.max(...chapters.map((c) => c.index))
+    : 0;
+  const allPlannedWritten = plannedMax > 0 && writtenMax >= plannedMax;
+
+  const startWrite = async (opts: { words: number }) => {
+    setShowWrite(false);
+    const { task_id } = await api.write(slug, { chapter: 0, words: opts.words });
     onTask(task_id, "写下一章");
   };
-  const runBatch = async () => {
-    const { task_id } = await api.run(slug, { count: 0 });
-    onTask(task_id, "批量续写");
+  const extendOutline = async () => {
+    const { task_id } = await api.extendOutline(slug, 10);
+    onTask(task_id, "续写大纲（10 章）");
+  };
+  const startBatch = async (opts: { count: number; words: number }) => {
+    setShowBatch(false);
+    const { task_id } = await api.run(slug, opts);
+    onTask(
+      task_id,
+      opts.count > 0 ? `批量续写 ${opts.count} 章` : "批量续写到末尾",
+    );
   };
   const save = async () => {
     try {
@@ -55,11 +87,34 @@ export function ChaptersTab({
     <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 20 }}>
       <div>
         <div className="row" style={{ marginBottom: 12 }}>
-          <button className="primary" onClick={writeNext}>
+          <button
+            className="primary"
+            onClick={() => setShowWrite(true)}
+            disabled={allPlannedWritten}
+          >
             ✍ 下一章
           </button>
-          <button onClick={runBatch}>⏩ 批量</button>
+          <button onClick={() => setShowBatch(true)} disabled={allPlannedWritten}>
+            ⏩ 批量
+          </button>
         </div>
+        {allPlannedWritten && (
+          <div
+            className="card"
+            style={{ marginBottom: 12, padding: 12, fontSize: 13 }}
+          >
+            <div style={{ marginBottom: 8 }}>
+              已写完大纲规划的全部 {plannedMax} 章。
+              <span className="muted">
+                {" "}
+                续写大纲会基于当前剧情进度生成后续章节细纲。
+              </span>
+            </div>
+            <button className="primary" onClick={extendOutline}>
+              ✚ 续写大纲（+10 章）
+            </button>
+          </div>
+        )}
         {chapters?.map((c) => (
           <div
             key={c.index}
@@ -113,6 +168,16 @@ export function ChaptersTab({
           </>
         )}
       </div>
+
+      {showBatch && (
+        <BatchModal onClose={() => setShowBatch(false)} onConfirm={startBatch} />
+      )}
+      {showWrite && (
+        <WriteChapterModal
+          onClose={() => setShowWrite(false)}
+          onConfirm={startWrite}
+        />
+      )}
     </div>
   );
 }

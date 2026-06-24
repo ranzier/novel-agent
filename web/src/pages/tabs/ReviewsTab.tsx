@@ -10,6 +10,11 @@ export function ReviewsTab({ slug }: { slug: string }) {
     queryKey: ["state", slug],
     queryFn: () => api.state(slug),
   });
+  const { data: ov } = useQuery({
+    queryKey: ["overview", slug],
+    queryFn: () => api.overview(slug),
+  });
+  const progLabel = ov?.progression_label || "状态";
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
@@ -60,7 +65,7 @@ export function ReviewsTab({ slug }: { slug: string }) {
         <h2 style={{ marginTop: 0 }}>世界状态（记忆）</h2>
         <div className="card">
           <p>
-            <span className="muted">主角境界：</span>
+            <span className="muted">主角{progLabel}：</span>
             {state?.protagonist_tier || "—"}
           </p>
           <p>
@@ -79,7 +84,7 @@ export function ReviewsTab({ slug }: { slug: string }) {
           <ul>
             {(state?.characters ?? []).map((c: any, i: number) => (
               <li key={i}>
-                {c.name} · {c.tier || "—"}{" "}
+                {c.name} · {c.power_tier || "—"}{" "}
                 {c.status === "死亡" && <span className="tag err">死亡</span>}
               </li>
             ))}

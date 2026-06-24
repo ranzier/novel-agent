@@ -17,9 +17,14 @@ export function BookList() {
     <div className="container">
       <div className="spread" style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>📚 网文写作 Agent</h1>
-        <button className="primary" onClick={() => setShowNew(true)}>
-          + 新建项目
-        </button>
+        <div className="row">
+          <Link to="/settings">
+            <button>⚙ 配置</button>
+          </Link>
+          <button className="primary" onClick={() => setShowNew(true)}>
+            + 新建项目
+          </button>
+        </div>
       </div>
 
       {isLoading && <p className="muted">加载中…</p>}

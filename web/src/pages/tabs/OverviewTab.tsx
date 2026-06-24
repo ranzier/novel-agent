@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
+import { BatchModal } from "../../components/BatchModal";
+import { WriteChapterModal } from "../../components/WriteChapterModal";
 import type { RunningTask } from "../Workspace";
 
 export function OverviewTab({
@@ -13,28 +16,51 @@ export function OverviewTab({
     queryKey: ["overview", slug],
     queryFn: () => api.overview(slug),
   });
+  const [showBatch, setShowBatch] = useState(false);
+  const [showWrite, setShowWrite] = useState(false);
 
   if (!ov) return <p className="muted">加载中…</p>;
   const st = ov.state ?? {};
 
-  const writeNext = async () => {
-    const { task_id } = await api.write(slug, { chapter: 0 });
+  const startWrite = async (opts: { words: number }) => {
+    setShowWrite(false);
+    const { task_id } = await api.write(slug, { chapter: 0, words: opts.words });
     onTask(task_id, "写下一章");
   };
-  const runBatch = async () => {
-    const { task_id } = await api.run(slug, { count: 0 });
-    onTask(task_id, "批量续写到结尾");
+  const extendOutline = async () => {
+    const { task_id } = await api.extendOutline(slug, 10);
+    onTask(task_id, "续写大纲（10 章）");
   };
+  const startBatch = async (opts: { count: number; words: number }) => {
+    setShowBatch(false);
+    const { task_id } = await api.run(slug, opts);
+    onTask(
+      task_id,
+      opts.count > 0 ? `批量续写 ${opts.count} 章` : "批量续写到末尾",
+    );
+  };
+
+  // 已写章数 ≥ 已规划章数 → 大纲已写完，需续写大纲
+  const allPlannedWritten =
+    ov.progress.total > 0 && ov.progress.written >= ov.progress.total;
 
   return (
     <div className="grid" style={{ gap: 18 }}>
       <div className="spread">
         <h2 style={{ margin: 0 }}>{ov.title}</h2>
         <div className="row">
-          <button className="primary" onClick={writeNext}>
-            ✍ 写下一章
+          {allPlannedWritten ? (
+            <button className="primary" onClick={extendOutline}>
+              ✚ 续写大纲（+10 章）
+            </button>
+          ) : (
+            <button className="primary" onClick={() => setShowWrite(true)}>
+              ✍ 写下一章
+            </button>
+          )}
+          <button onClick={() => setShowBatch(true)} disabled={allPlannedWritten}>
+            ⏩ 批量续写
           </button>
-          <button onClick={runBatch}>⏩ 批量续写</button>
         </div>
       </div>
 
@@ -53,10 +79,20 @@ export function OverviewTab({
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>世界状态快照</h3>
-        <p>
-          <span className="muted">主角境界：</span>
-          {st.protagonist_tier || "—"}
-        </p>
+        {(ov.progression_label || st.protagonist_tier) && (
+          <p>
+            <span className="muted">
+              主角{ov.progression_label || "状态"}：
+            </span>
+            {st.protagonist_tier || "—"}
+          </p>
+        )}
+        {st.protagonist_location && (
+          <p>
+            <span className="muted">主角位置：</span>
+            {st.protagonist_location}
+          </p>
+        )}
         <p>
           <span className="muted">未回收伏笔：</span>
           {(st.foreshadowing ?? []).length} 条
@@ -69,6 +105,16 @@ export function OverviewTab({
             .join("、") || "无"}
         </p>
       </div>
+
+      {showBatch && (
+        <BatchModal onClose={() => setShowBatch(false)} onConfirm={startBatch} />
+      )}
+      {showWrite && (
+        <WriteChapterModal
+          onClose={() => setShowWrite(false)}
+          onConfirm={startWrite}
+        />
+      )}
     </div>
   );
 }

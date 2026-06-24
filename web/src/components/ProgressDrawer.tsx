@@ -1,5 +1,7 @@
-// 长任务进度抽屉：SSE 实时滚动日志 + 结束态。
+// 长任务进度抽屉：步骤手风琴。每步可点击展开，查看该步的明细与流式正文；
+// 进行中的步骤默认展开并实时滚动。
 
+import { useEffect, useRef, useState } from "react";
 import { useTaskStream } from "../useTaskStream";
 
 export function ProgressDrawer({
@@ -13,15 +15,27 @@ export function ProgressDrawer({
   onClose: () => void;
   onDone?: (data: Record<string, any>) => void;
 }) {
-  const { events, finished, doneData } = useTaskStream(taskId);
+  const { groups, finished, doneData } = useTaskStream(taskId);
 
-  // 结束时回调（用于刷新数据）
-  if (finished && doneData && onDone) {
-    // 延迟到下一 tick，避免渲染中 setState
-    setTimeout(() => onDone(doneData), 0);
-  }
+  // 用户手动展开/折叠的覆盖（key=步骤下标 → 是否展开）
+  const [overrides, setOverrides] = useState<Record<number, boolean>>({});
 
-  const hasError = events.some((e) => e.kind === "error");
+  // 结束时回调一次（刷新数据）。ref 守卫避免重复触发。
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (finished && doneData && onDone && !firedRef.current) {
+      firedRef.current = true;
+      onDone(doneData);
+    }
+  }, [finished, doneData, onDone]);
+
+  // 当前正在进行的步骤下标（最后一个，且任务未结束）
+  const activeIdx = finished ? -1 : groups.length - 1;
+
+  const hasError = groups.some((g) => g.lines.some((l) => l.kind === "error"));
+
+  const isOpen = (i: number) =>
+    overrides[i] !== undefined ? overrides[i] : i === activeIdx;
 
   return (
     <div className="drawer-mask" onClick={finished ? onClose : undefined}>
@@ -34,23 +48,24 @@ export function ProgressDrawer({
         </div>
 
         <div style={{ flex: 1 }}>
-          {events.map((e, i) => (
-            <div key={i} className={`log-line ${e.kind}`}>
-              {e.kind === "step" && "› "}
-              {e.kind === "done" && "✓ "}
-              {e.message}
-            </div>
+          {groups.map((g, i) => (
+            <StepBlock
+              key={i}
+              group={g}
+              active={i === activeIdx}
+              open={isOpen(i)}
+              onToggle={() =>
+                setOverrides((o) => ({ ...o, [i]: !isOpen(i) }))
+              }
+            />
           ))}
-          {!finished && (
-            <div className="log-line muted">⏳ 正在处理…</div>
+          {groups.length === 0 && (
+            <div className="log-line muted">⏳ 正在启动…</div>
           )}
         </div>
 
         {finished && (
-          <div
-            className="card"
-            style={{ marginTop: 16 }}
-          >
+          <div className="card" style={{ marginTop: 16 }}>
             {hasError ? (
               <span className="tag err">任务出错</span>
             ) : (
@@ -58,13 +73,82 @@ export function ProgressDrawer({
             )}
             {doneData?.usage && (
               <div className="muted" style={{ marginTop: 8 }}>
-                调用 {doneData.usage.calls} 次 · 约 $
-                {doneData.usage.cost_usd}
+                调用 {doneData.usage.calls} 次 · 约 ${doneData.usage.cost_usd}
               </div>
             )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StepBlock({
+  group,
+  active,
+  open,
+  onToggle,
+}: {
+  group: import("../useTaskStream").StepGroup;
+  active: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  // 流式正文自动滚到底
+  const streamRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (streamRef.current) {
+      streamRef.current.scrollTop = streamRef.current.scrollHeight;
+    }
+  }, [group.streamText]);
+
+  const hasDetail = group.lines.length > 0 || group.streamText;
+
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div
+        className={`log-line ${group.kind}`}
+        onClick={hasDetail ? onToggle : undefined}
+        style={{ cursor: hasDetail ? "pointer" : "default", userSelect: "none" }}
+      >
+        {hasDetail ? (open ? "▾ " : "▸ ") : "  "}
+        {group.kind === "done" ? "✓ " : "› "}
+        {group.title}
+        {active && !group.streamText && <span className="muted"> …</span>}
+      </div>
+
+      {open && hasDetail && (
+        <div style={{ paddingLeft: 18, marginTop: 4 }}>
+          {group.lines.map((l, j) => (
+            <div
+              key={j}
+              className={`log-line ${l.kind}`}
+              style={{ whiteSpace: "pre-wrap" }}
+            >
+              {l.message}
+            </div>
+          ))}
+          {group.streamText && (
+            <div
+              ref={streamRef}
+              style={{
+                marginTop: 6,
+                padding: "10px 12px",
+                background: "var(--panel-2)",
+                borderRadius: 6,
+                maxHeight: 280,
+                overflowY: "auto",
+                whiteSpace: "pre-wrap",
+                fontSize: 13,
+                lineHeight: 1.7,
+              }}
+            >
+              {group.streamText}
+              {active && <span className="muted">▌</span>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

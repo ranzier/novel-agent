@@ -7,6 +7,11 @@ export function CharactersTab({ slug }: { slug: string }) {
     queryKey: ["characters", slug],
     queryFn: () => api.characters(slug),
   });
+  const { data: ov } = useQuery({
+    queryKey: ["overview", slug],
+    queryFn: () => api.overview(slug),
+  });
+  const progLabel = ov?.progression_label || "";
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
@@ -73,9 +78,23 @@ export function CharactersTab({ slug }: { slug: string }) {
                 <span className="tag">{c.role}</span>
               </div>
               <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>
-                {c.tier && `境界 ${c.tier}`}
+                {c.power_tier && progLabel && `${progLabel} ${c.power_tier}`}
+                {c.power_tier && !progLabel && c.power_tier}
+                {c.power_tier && c.faction && " · "}
+                {c.faction}
               </div>
-              <div>{c.personality || c.background || ""}</div>
+              {Array.isArray(c.personality) && c.personality.length > 0 && (
+                <div style={{ marginBottom: 4 }}>
+                  {c.personality.map((p: string, k: number) => (
+                    <span key={k} className="tag" style={{ marginRight: 4 }}>
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="muted" style={{ fontSize: 13 }}>
+                {c.goal || c.background || ""}
+              </div>
             </div>
           ))}
         </div>

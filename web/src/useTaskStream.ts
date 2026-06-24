@@ -1,38 +1,67 @@
-// 订阅任务进度（SSE）。返回事件列表、是否结束、结果数据。
+// 订阅任务进度（SSE）。把事件按「步骤」分组，每步保留其下的明细与流式正文，
+// 便于前端做可展开的手风琴。
 
 import { useEffect, useRef, useState } from "react";
 
 export interface ProgressEvent {
-  kind: string; // step / info / warn / error / done
+  kind: string; // step / info / warn / error / done / delta
   message: string;
   data: Record<string, any>;
 }
 
+// 一个步骤分组：标题 + 该步下的明细行 + 该步的流式正文
+export interface StepGroup {
+  title: string; // step 的标题；开篇未归入任何 step 的归到「准备」
+  kind: string; // step / done / error —— 决定标题样式
+  lines: ProgressEvent[]; // 该步下的 info/warn/error 明细
+  streamText: string; // 该步的流式正文（仅写作步会有）
+}
+
 export function useTaskStream(taskId: string | null) {
-  const [events, setEvents] = useState<ProgressEvent[]>([]);
+  const [groups, setGroups] = useState<StepGroup[]>([]);
   const [finished, setFinished] = useState(false);
   const [doneData, setDoneData] = useState<Record<string, any> | null>(null);
-  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
     if (!taskId) return;
-    setEvents([]);
+    setGroups([]);
     setFinished(false);
     setDoneData(null);
 
     const es = new EventSource(`/api/tasks/${taskId}/events`);
-    esRef.current = es;
 
     const onMsg = (e: MessageEvent) => {
       try {
         const ev: ProgressEvent = JSON.parse(e.data);
-        setEvents((prev) => [...prev, ev]);
+
+        setGroups((prev) => {
+          const next = [...prev];
+          const cur = next[next.length - 1];
+
+          if (ev.kind === "step") {
+            // 新步骤开一个分组
+            next.push({ title: ev.message, kind: "step", lines: [], streamText: "" });
+            return next;
+          }
+          if (ev.kind === "delta") {
+            // 正文增量累积到当前步骤
+            if (cur) cur.streamText += ev.message;
+            return next;
+          }
+          // info / warn / error / done：归入当前步骤的明细
+          if (!cur) {
+            // 还没有任何 step，先建一个「准备」分组
+            next.push({ title: "准备", kind: "step", lines: [], streamText: "" });
+          }
+          next[next.length - 1].lines.push(ev);
+          if (ev.kind === "done") {
+            next[next.length - 1].kind = "done";
+          }
+          return next;
+        });
+
         if (ev.kind === "done") {
           setDoneData(ev.data ?? {});
-          setFinished(true);
-          es.close();
-        }
-        if (ev.kind === "error") {
           setFinished(true);
           es.close();
         }
@@ -41,13 +70,11 @@ export function useTaskStream(taskId: string | null) {
       }
     };
 
-    // 后端按 event: <kind> 命名，统一监听这几类
-    ["step", "info", "warn", "error", "done"].forEach((k) =>
+    ["step", "info", "warn", "error", "done", "delta"].forEach((k) =>
       es.addEventListener(k, onMsg as EventListener),
     );
 
     es.onerror = () => {
-      // 流结束或网络断开；若未正常 done 也置为结束，避免一直转圈
       setFinished(true);
       es.close();
     };
@@ -55,5 +82,5 @@ export function useTaskStream(taskId: string | null) {
     return () => es.close();
   }, [taskId]);
 
-  return { events, finished, doneData };
+  return { groups, finished, doneData };
 }

@@ -14,6 +14,7 @@ export interface Overview {
   tone: string;
   golden_finger: string;
   core_conflict: string;
+  progression_label?: string;
   progress: { written: number; total: number };
   state: any;
 }
@@ -88,6 +89,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  extendOutline: (slug: string, count: number) =>
+    req<TaskRef>(`/api/books/${slug}/extend-outline`, {
+      method: "POST",
+      body: JSON.stringify({ count }),
+    }),
   write: (slug: string, body: any) =>
     req<TaskRef>(`/api/books/${slug}/write`, {
       method: "POST",
@@ -102,4 +108,17 @@ export const api = {
     req<TaskRef>(`/api/books/${slug}/reindex?rebuild=${rebuild}`, {
       method: "POST",
     }),
+
+  // 配置管理
+  getConfig: () => req<Record<string, any>>("/api/config"),
+  saveConfig: (body: Record<string, string>) =>
+    req<{ ok: boolean; config: Record<string, any> }>("/api/config", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  testConfig: () =>
+    req<{ ok: boolean; reply?: string; error?: string; usage?: any }>(
+      "/api/config/test",
+      { method: "POST" },
+    ),
 };

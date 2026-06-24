@@ -138,15 +138,19 @@ def init(
 @app.command()
 def outline(
     book: str = typer.Option(..., "--book", "-b", help="项目 slug（见 novel list）"),
-    volumes: int = typer.Option(5, "--volumes", "-v", help="规划卷数"),
-    chapters_per_volume: int = typer.Option(
-        10, "--chapters", "-c", help="每卷章节数（细纲）"
+    volumes: int = typer.Option(5, "--volumes", "-v", help="规划卷数（骨架）"),
+    window: int = typer.Option(
+        10, "--window", "-w", help="先生成未来多少章的细纲（滑动窗口）"
     ),
     skeleton_only: bool = typer.Option(
         False, "--skeleton-only", help="只生成骨架，不展开章节细纲"
     ),
 ) -> None:
-    """生成分层大纲：先骨架（卷弧光），再逐卷展开章节细纲。"""
+    """生成大纲：先骨架（卷弧光），再只展开未来 N 章细纲（滑动窗口）。
+
+    不一次铺满全书——后期剧情不被早期规划绑架。写完已规划章节后，
+    用 `novel extend-outline` 基于实际进度续写下一窗口。
+    """
     try:
         project = Project.open(book)
     except FileNotFoundError as e:
@@ -168,40 +172,77 @@ def outline(
             console.print(f"[bold red]生成失败：[/]{e}")
             raise typer.Exit(code=1)
 
-    console.print(f"[green]✓[/] 骨架完成：{len(outline_obj.volumes)} 卷")
+    console.print(f"[green]✓[/] 骨架完成：{len(outline_obj.arc_plan)} 卷弧光")
 
     if not skeleton_only:
-        start_index = 1
-        for vol in outline_obj.volumes:
-            with console.status(
-                f"正在细化第 {vol.index} 卷《{vol.title}》"
-                f"（{chapters_per_volume} 章）…"
-            ):
-                try:
-                    filled = outline_planner.generate_volume_chapters(
-                        gateway,
-                        bible,
-                        vol,
-                        chapters=chapters_per_volume,
-                        start_index=start_index,
-                        character_names=char_names,
-                    )
-                except LLMError as e:
-                    console.print(f"[yellow]第 {vol.index} 卷细化失败：{e}，跳过[/]")
-                    continue
-            vol.chapters = filled.chapters
-            start_index += len(vol.chapters)
-            console.print(
-                f"  [green]✓[/] 第 {vol.index} 卷《{vol.title}》"
-                f"：{len(vol.chapters)} 章"
-            )
+        with console.status(f"正在规划接下来 {window} 章细纲…"):
+            try:
+                win = outline_planner.generate_chapter_window(
+                    gateway, bible, outline_obj,
+                    start_index=1, count=window,
+                    character_names=char_names,
+                    state=project.load_state(),
+                )
+            except LLMError as e:
+                console.print(f"[bold red]章节细纲生成失败：[/]{e}")
+                raise typer.Exit(code=1)
+        added = outline_obj.add_window(
+            win["chapters"], title=win["title"], arc=win["arc"]
+        )
+        console.print(f"  [green]✓[/] 已规划 {added} 章细纲（第 1~{added} 章）")
 
     project.save_outline(outline_obj)
     total = len(outline_obj.all_chapters())
     console.print(
-        f"\n[green]✓[/] 大纲已保存：{len(outline_obj.volumes)} 卷 / {total} 章"
+        f"\n[green]✓[/] 大纲已保存：{len(outline_obj.arc_plan)} 卷弧光 / "
+        f"{total} 章细纲"
     )
     console.print(f"  文件：[dim]{project.outline_path}[/]")
+    console.print(f"\n[dim]{gateway.usage.summary()}[/]")
+
+
+@app.command(name="extend-outline")
+def extend_outline(
+    book: str = typer.Option(..., "--book", "-b", help="项目 slug"),
+    count: int = typer.Option(10, "--count", "-n", help="续写多少章细纲"),
+) -> None:
+    """续写大纲：基于当前进度与世界状态，增量追加下一窗口的章节细纲。"""
+    try:
+        project = Project.open(book)
+    except FileNotFoundError as e:
+        console.print(f"[bold red]{e}[/]")
+        raise typer.Exit(code=1)
+    if not project.has_outline():
+        console.print("[bold red]还没有大纲，请先 novel outline。[/]")
+        raise typer.Exit(code=1)
+
+    gateway = _gateway()
+    bible = project.load_bible()
+    characters = project.load_characters()
+    char_names = [c.name for c in characters.characters]
+    outline_obj = project.load_outline()
+    start_index = outline_obj.max_chapter_index() + 1
+
+    with console.status(f"正在续写第 {start_index} 起 {count} 章细纲…"):
+        try:
+            win = outline_planner.generate_chapter_window(
+                gateway, bible, outline_obj,
+                start_index=start_index, count=count,
+                character_names=char_names,
+                state=project.load_state(),
+            )
+        except LLMError as e:
+            console.print(f"[bold red]续写失败：[/]{e}")
+            raise typer.Exit(code=1)
+
+    added = outline_obj.add_window(
+        win["chapters"], title=win["title"], arc=win["arc"]
+    )
+    project.save_outline(outline_obj)
+    console.print(
+        f"[green]✓[/] 已续写 {added} 章细纲（新卷《{win['title'] or '未命名'}》，"
+        f"第 {start_index}~{start_index + added - 1} 章）"
+    )
     console.print(f"\n[dim]{gateway.usage.summary()}[/]")
 
 

@@ -153,6 +153,59 @@ class LLMGateway:
             f"Claude 调用失败，已重试 {self.max_retries} 次：{last_err}"
         ) from last_err
 
+    def complete_stream(
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        task: str = "write",
+        model: str | None = None,
+        max_tokens: int = 8192,
+        temperature: float = 1.0,
+    ):
+        """流式补全：逐段 yield 文本增量（生成器）。
+
+        与 complete 行为一致（同样统计用量、对瞬时错误重试），但边生成
+        边产出 token，供上层做流式展示。注意：为简化，仅在「首个 token 到达前」
+        的连接/限流错误才重试；一旦开始产出文本就不再重试（避免重复输出）。
+        """
+        model = model or self.config.model_for(task)
+        messages = [{"role": "user", "content": prompt}]
+
+        last_err: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            started = False
+            try:
+                with self._client.messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    system=system or anthropic.NOT_GIVEN,
+                    messages=messages,
+                ) as stream:
+                    for text in stream.text_stream:
+                        started = True
+                        yield text
+                    final = stream.get_final_message()
+                self.usage.add(
+                    model, final.usage.input_tokens, final.usage.output_tokens
+                )
+                return
+            except _RETRIABLE as e:
+                last_err = e
+                if not started and attempt < self.max_retries:
+                    time.sleep(2**attempt)
+                    continue
+                break
+            except anthropic.APIStatusError as e:
+                raise LLMError(
+                    f"Claude API 错误 [{e.status_code}]: {e.message}"
+                ) from e
+
+        raise LLMError(
+            f"Claude 流式调用失败：{last_err}"
+        ) from last_err
+
     def complete_json(
         self,
         prompt: str,

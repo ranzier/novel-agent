@@ -94,6 +94,7 @@ def write_chapter(
     revision_note: str = "",
     recall_text: str = "",
     pacing_text: str = "",
+    on_delta=None,
 ) -> str:
     """生成第 index 章正文并返回文本（不落盘，由调用方决定保存）。
 
@@ -154,13 +155,25 @@ def write_chapter(
             f"务必使用既定角色名、不让已死角色出场、不让境界倒退。"
         )
 
-    text = gateway.complete(
-        prompt,
-        system=_SYSTEM,
-        task="write",
-        max_tokens=max(2048, int(words * 2.5)),
-        temperature=1.0,
-    )
+    max_tokens = max(2048, int(words * 2.5))
+    if on_delta is not None:
+        # 流式：边生成边回调 on_delta(增量)，最后汇总
+        parts = []
+        for delta in gateway.complete_stream(
+            prompt, system=_SYSTEM, task="write",
+            max_tokens=max_tokens, temperature=1.0,
+        ):
+            parts.append(delta)
+            try:
+                on_delta(delta)
+            except Exception:  # noqa: BLE001 - 回调出错不应中断生成
+                pass
+        text = "".join(parts)
+    else:
+        text = gateway.complete(
+            prompt, system=_SYSTEM, task="write",
+            max_tokens=max_tokens, temperature=1.0,
+        )
     return _strip_leading_title(text, ch.title)
 
 

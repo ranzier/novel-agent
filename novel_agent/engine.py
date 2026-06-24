@@ -56,6 +56,10 @@ def write_one_chapter(
                 )
                 if recall_text:
                     rep.info(f"召回 {recall_text.count('· [')} 段相关历史片段")
+                    # 把召回的具体内容发出来，便于在前端展开查看
+                    rep.info(recall_text)
+                else:
+                    rep.info("无相关历史片段（开篇阶段或语义不匹配）")
             except Exception as e:  # noqa: BLE001
                 rep.warn(f"向量召回失败（已跳过）：{e}")
                 recall_text = ""
@@ -88,6 +92,7 @@ def write_one_chapter(
                 gateway, project, index=chapter, words=words,
                 revision_note=revision_note, recall_text=recall_text,
                 pacing_text=pacing_text,
+                on_delta=getattr(rep, "delta", None),
             )
         except (LLMError, ValueError) as e:
             rep.error(f"写作失败：{e}")
@@ -100,6 +105,9 @@ def write_one_chapter(
                     gateway, title=bible.title, index=chapter,
                     chapter_title=title, body=text, prev_state=prev_state,
                 )
+                # 把抽取出的摘要发出来，便于前端展开查看
+                if summary is not None and summary.summary:
+                    rep.info(f"本章摘要：{summary.summary}")
             except LLMError as e:
                 rep.warn(f"记忆固化失败：{e}")
                 summary = new_state = None

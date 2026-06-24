@@ -43,6 +43,9 @@ class Reporter(Protocol):
     def done(self, message: str = "", **data) -> None:
         """任务结束（携带最终结果数据，如用量/成本）。"""
 
+    def delta(self, text: str) -> None:
+        """流式文本增量（正文逐段产出）。可选实现。"""
+
 
 class ConsoleReporter:
     """终端实现：保持原 CLI 观感。"""
@@ -69,6 +72,10 @@ class ConsoleReporter:
     def done(self, message: str = "", **data) -> None:
         if message:
             self.console.print(f"[green]✓[/] {message}")
+
+    def delta(self, text: str) -> None:
+        # 终端直接原样输出（不换行），让正文流式可见
+        self.console.print(text, end="", markup=False, highlight=False)
 
 
 class QueueReporter:
@@ -100,6 +107,11 @@ class QueueReporter:
     def done(self, message: str = "", **data) -> None:
         self._emit("done", message, data)
         self.queue.put(None)  # 哨兵：通知 SSE 流结束
+
+    def delta(self, text: str) -> None:
+        # 正文增量只入队（供 SSE 即时推送），不存入 events 历史，
+        # 避免一章数千个 token 撑爆内存。
+        self.queue.put(Event(kind="delta", message=text, data={}))
 
     def close(self) -> None:
         """异常兜底：确保 SSE 流能结束。"""

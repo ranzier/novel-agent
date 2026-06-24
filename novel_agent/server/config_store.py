@@ -18,6 +18,11 @@ from ..config import (
     DEFAULT_EMBED_DIM,
     DEFAULT_EMBED_MODEL,
     DEFAULT_MODEL,
+    DEFAULT_RECENT_CHAPTERS,
+    DEFAULT_RECENT_CHAR_BUDGET,
+    DEFAULT_SUMMARY_COUNT,
+    DEFAULT_RECALL_TOP_K,
+    DEFAULT_RECALL_MIN_SCORE,
     PROJECT_ROOT,
 )
 
@@ -33,6 +38,11 @@ _FIELDS = {
     "EMBED_BASE_URL": False,
     "EMBED_MODEL": False,
     "EMBED_DIM": False,
+    "CTX_RECENT_CHAPTERS": False,
+    "CTX_RECENT_CHAR_BUDGET": False,
+    "CTX_SUMMARY_COUNT": False,
+    "CTX_RECALL_TOP_K": False,
+    "CTX_RECALL_MIN_SCORE": False,
 }
 
 
@@ -68,6 +78,11 @@ def get_config_view() -> dict:
         "EMBED_BASE_URL": DEFAULT_EMBED_BASE_URL,
         "EMBED_MODEL": DEFAULT_EMBED_MODEL,
         "EMBED_DIM": str(DEFAULT_EMBED_DIM),
+        "CTX_RECENT_CHAPTERS": str(DEFAULT_RECENT_CHAPTERS),
+        "CTX_RECENT_CHAR_BUDGET": str(DEFAULT_RECENT_CHAR_BUDGET),
+        "CTX_SUMMARY_COUNT": str(DEFAULT_SUMMARY_COUNT),
+        "CTX_RECALL_TOP_K": str(DEFAULT_RECALL_TOP_K),
+        "CTX_RECALL_MIN_SCORE": str(DEFAULT_RECALL_MIN_SCORE),
     }
     return out
 
@@ -115,13 +130,26 @@ def _write_env(values: dict[str, str]) -> None:
         "# 可选：默认模型，不填用内置默认",
         _kv_or_comment("NOVEL_MODEL", values.get("NOVEL_MODEL", "")),
         "",
-        "# 通义 text-embedding-v3 的 key（向量召回，走 DashScope）",
+        "# 通义 text-embedding 的 key（向量召回，走 DashScope）",
         f"DASHSCOPE_API_KEY={values.get('DASHSCOPE_API_KEY', '')}",
         "",
         "# 可选：embedding 端点 / 模型 / 维度，不填用内置默认",
         _kv_or_comment("EMBED_BASE_URL", values.get("EMBED_BASE_URL", "")),
         _kv_or_comment("EMBED_MODEL", values.get("EMBED_MODEL", "")),
         _kv_or_comment("EMBED_DIM", values.get("EMBED_DIM", "")),
+        "",
+        "# 可选：prompt 上下文参数，不填用内置默认",
+        _kv_or_comment(
+            "CTX_RECENT_CHAPTERS", values.get("CTX_RECENT_CHAPTERS", "")
+        ),
+        _kv_or_comment(
+            "CTX_RECENT_CHAR_BUDGET", values.get("CTX_RECENT_CHAR_BUDGET", "")
+        ),
+        _kv_or_comment("CTX_SUMMARY_COUNT", values.get("CTX_SUMMARY_COUNT", "")),
+        _kv_or_comment("CTX_RECALL_TOP_K", values.get("CTX_RECALL_TOP_K", "")),
+        _kv_or_comment(
+            "CTX_RECALL_MIN_SCORE", values.get("CTX_RECALL_MIN_SCORE", "")
+        ),
         "",
     ]
     ENV_PATH.write_text("\n".join(lines), encoding="utf-8")

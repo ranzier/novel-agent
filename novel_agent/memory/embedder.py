@@ -1,4 +1,4 @@
-"""通义 text-embedding-v3 客户端（走 DashScope OpenAI 兼容端点）。
+"""通义 text-embedding（默认 v4）客户端（走 DashScope OpenAI 兼容端点）。
 
 DashScope 的 embedding 接口对单次请求的文本条数有上限（通常 10 条），
 这里自动分批。失败重试与超时复用 openai SDK 自带能力。

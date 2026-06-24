@@ -17,8 +17,8 @@ BOOKS_DIR = PROJECT_ROOT / "books"
 # 默认模型：用最新的 Opus。可被 NOVEL_MODEL 覆盖。
 DEFAULT_MODEL = "claude-opus-4-8"
 
-# 向量 embedding 默认配置（通义 text-embedding-v3，走 DashScope OpenAI 兼容端点）
-DEFAULT_EMBED_MODEL = "text-embedding-v3"
+# 向量 embedding 默认配置（通义 text-embedding-v4，走 DashScope OpenAI 兼容端点）
+DEFAULT_EMBED_MODEL = "text-embedding-v4"
 DEFAULT_EMBED_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_EMBED_DIM = 1024
 
@@ -30,6 +30,29 @@ DEFAULT_MODELS = {
     "extract": "claude-opus-4-8",    # 抽取：统一用 Opus
     "review": "claude-opus-4-8",     # 校验：统一用 Opus
 }
+
+# Prompt 上下文默认参数（可在配置页调整，存入 .env）
+DEFAULT_RECENT_CHAPTERS = 3       # 注入最近几章的完整正文
+DEFAULT_RECENT_CHAR_BUDGET = 12000  # 近章正文总字数预算
+DEFAULT_SUMMARY_COUNT = 30        # 注入最多几条早期章节摘要
+DEFAULT_RECALL_TOP_K = 4          # 向量召回片段条数
+DEFAULT_RECALL_MIN_SCORE = 0.3    # 向量召回相似度阈值
+
+
+def _env_int(key: str, default: int) -> int:
+    raw = os.environ.get(key, "").strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:
+        return default
+
+
+def _env_float(key: str, default: float) -> float:
+    raw = os.environ.get(key, "").strip()
+    try:
+        return float(raw) if raw else default
+    except ValueError:
+        return default
 
 
 @dataclass
@@ -45,6 +68,12 @@ class Config:
     embed_base_url: str
     embed_model: str
     embed_dim: int
+    # prompt 上下文参数
+    recent_chapters: int
+    recent_char_budget: int
+    summary_count: int
+    recall_top_k: int
+    recall_min_score: float
 
     @classmethod
     def load(cls) -> "Config":
@@ -74,6 +103,17 @@ class Config:
             embed_base_url=embed_base_url,
             embed_model=embed_model,
             embed_dim=embed_dim,
+            recent_chapters=_env_int(
+                "CTX_RECENT_CHAPTERS", DEFAULT_RECENT_CHAPTERS
+            ),
+            recent_char_budget=_env_int(
+                "CTX_RECENT_CHAR_BUDGET", DEFAULT_RECENT_CHAR_BUDGET
+            ),
+            summary_count=_env_int("CTX_SUMMARY_COUNT", DEFAULT_SUMMARY_COUNT),
+            recall_top_k=_env_int("CTX_RECALL_TOP_K", DEFAULT_RECALL_TOP_K),
+            recall_min_score=_env_float(
+                "CTX_RECALL_MIN_SCORE", DEFAULT_RECALL_MIN_SCORE
+            ),
         )
 
     def require_api_key(self) -> str:

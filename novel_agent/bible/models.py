@@ -100,6 +100,9 @@ class Bible:
     core_conflict: str = ""         # 核心矛盾
     tone: str = ""                  # 基调 / 文风倾向
     worldview: str = ""             # 世界观综述
+    # 进阶体系的称谓，随题材而定：玄幻="境界"、历史="官阶"、都市="地位"…
+    # 留空表示本题材没有可量化的进阶体系（如纯爱情/悬疑）。
+    progression_label: str = ""
     power_system: PowerSystem = field(default_factory=PowerSystem)
     geography: list[str] = field(default_factory=list)   # 重要地点
     factions: list[Faction] = field(default_factory=list)
@@ -117,6 +120,7 @@ class Bible:
             core_conflict=d.get("core_conflict", ""),
             tone=d.get("tone", ""),
             worldview=d.get("worldview", ""),
+            progression_label=d.get("progression_label", ""),
             power_system=PowerSystem.from_dict(d.get("power_system", {})),
             geography=list(d.get("geography", [])),
             factions=[

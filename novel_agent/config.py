@@ -22,12 +22,13 @@ DEFAULT_EMBED_MODEL = "text-embedding-v3"
 DEFAULT_EMBED_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_EMBED_DIM = 1024
 
-# 不同用途的默认模型分工（后续按需细分，先都用同一个）
+# 不同用途的默认模型分工（当前统一用 Opus 4.8，质量优先）
+# 如需省钱可把 extract/review 换成更便宜的模型（如 Sonnet）。
 DEFAULT_MODELS = {
     "write": "claude-opus-4-8",      # 正文：质量优先
     "outline": "claude-opus-4-8",    # 大纲：质量优先
-    "extract": "claude-sonnet-4-6",  # 抽取：快且便宜
-    "review": "claude-sonnet-4-6",   # 校验：快且便宜
+    "extract": "claude-opus-4-8",    # 抽取：统一用 Opus
+    "review": "claude-opus-4-8",     # 校验：统一用 Opus
 }
 
 

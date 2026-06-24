@@ -20,8 +20,12 @@ class InitBody(BaseModel):
 
 class OutlineBody(BaseModel):
     volumes: int = 5
-    chapters: int = 10
+    window: int = 10
     skeleton_only: bool = False
+
+
+class ExtendOutlineBody(BaseModel):
+    count: int = 10
 
 
 class WriteBody(BaseModel):
@@ -61,6 +65,33 @@ def create_app() -> FastAPI:
     def _resp(data) -> JSONResponse:
         """序列化 dataclass → JSON。"""
         return JSONResponse(_to_plain(data))
+
+    # ---- 配置管理 ----
+    @app.get("/api/config")
+    def get_config():
+        from .config_store import get_config_view
+
+        return get_config_view()
+
+    @app.put("/api/config")
+    async def put_config(payload: dict):
+        from .config_store import save_config, get_config_view
+
+        save_config(payload or {})
+        return {"ok": True, "config": get_config_view()}
+
+    @app.post("/api/config/test")
+    def test_config():
+        """用当前配置实际调一次 Claude，验证连通性。"""
+        from ..config import Config
+        from ..llm import LLMError, LLMGateway
+
+        try:
+            gw = LLMGateway(Config.load())
+            text = gw.complete("回复两个字：在线", max_tokens=32)
+            return {"ok": True, "reply": text, "usage": gw.usage.as_dict()}
+        except (RuntimeError, LLMError) as e:
+            return {"ok": False, "error": str(e)}
 
     # ---- GET /api/books ----
     @app.get("/api/books")
@@ -102,6 +133,7 @@ def create_app() -> FastAPI:
             "tone": bible.tone,
             "golden_finger": bible.golden_finger,
             "core_conflict": bible.core_conflict,
+            "progression_label": bible.progression_label,
             "progress": {"written": len(written), "total": total_ch},
             "state": state,
         })
@@ -279,31 +311,61 @@ def create_app() -> FastAPI:
             char_names = [c.name for c in characters.characters]
             rep.step(f"规划 {body.volumes} 卷骨架")
             outline = outline_planner.generate_skeleton(gw, bible, body.volumes)
-            rep.info(f"骨架完成：{len(outline.volumes)} 卷")
+            rep.info(f"骨架完成：{len(outline.arc_plan)} 卷弧光")
             if not body.skeleton_only:
-                start_index = 1
-                for vol in outline.volumes:
-                    rep.step(f"细化第 {vol.index} 卷《{vol.title}》")
-                    try:
-                        filled = outline_planner.generate_volume_chapters(
-                            gw, bible, vol, chapters=body.chapters,
-                            start_index=start_index, character_names=char_names,
-                        )
-                    except Exception as e:  # noqa: BLE001
-                        rep.warn(f"第 {vol.index} 卷细化失败：{e}，跳过")
-                        continue
-                    vol.chapters = filled.chapters
-                    start_index += len(vol.chapters)
-                    rep.info(f"第 {vol.index} 卷：{len(vol.chapters)} 章")
+                rep.step(f"规划接下来 {body.window} 章细纲")
+                win = outline_planner.generate_chapter_window(
+                    gw, bible, outline, start_index=1, count=body.window,
+                    character_names=char_names, state=p.load_state(),
+                )
+                added = outline.add_window(
+                    win["chapters"], title=win["title"], arc=win["arc"]
+                )
+                rep.info(f"已规划 {added} 章细纲")
             p.save_outline(outline)
             rep.done(
-                f"大纲已生成：{len(outline.volumes)} 卷 / "
-                f"{len(outline.all_chapters())} 章",
+                f"大纲已生成：{len(outline.arc_plan)} 卷弧光 / "
+                f"{len(outline.all_chapters())} 章细纲",
                 usage=gw.usage.as_dict(),
             )
             return {"volumes": len(outline.volumes)}
 
         task = tasks.start("outline", slug, work)
+        return {"task_id": task.id}
+
+    # ---- POST /api/books/{slug}/extend-outline  续写大纲 ----
+    @app.post("/api/books/{slug}/extend-outline")
+    def extend_outline(slug: str, body: ExtendOutlineBody):
+        p = _open_project(slug)
+        _guard_busy(slug)
+        if not p.has_outline():
+            raise HTTPException(status_code=400, detail="还没有大纲")
+        from ..generate import outline_planner
+
+        def work(rep):
+            gw = _gateway()
+            bible = p.load_bible()
+            characters = p.load_characters()
+            char_names = [c.name for c in characters.characters]
+            outline = p.load_outline()
+            start_index = outline.max_chapter_index() + 1
+            rep.step(f"续写第 {start_index} 起 {body.count} 章细纲")
+            win = outline_planner.generate_chapter_window(
+                gw, bible, outline, start_index=start_index, count=body.count,
+                character_names=char_names, state=p.load_state(),
+            )
+            added = outline.add_window(
+                win["chapters"], title=win["title"], arc=win["arc"]
+            )
+            p.save_outline(outline)
+            rep.done(
+                f"已续写 {added} 章细纲（新卷《{win['title'] or '未命名'}》，"
+                f"第 {start_index}~{start_index + added - 1} 章）",
+                usage=gw.usage.as_dict(),
+            )
+            return {"added": added, "start": start_index}
+
+        task = tasks.start("extend-outline", slug, work)
         return {"task_id": task.id}
 
     # ---- POST /api/books/{slug}/write ----

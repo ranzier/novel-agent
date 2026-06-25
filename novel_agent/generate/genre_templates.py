@@ -144,7 +144,7 @@ _HISTORY = GenreProfile(
 
 _SCIFI = GenreProfile(
     key="科幻",
-    aliases=("星际", "赛博朋克", "末世", "机甲", "未来", "硬科幻", "末日"),
+    aliases=("星际", "赛博朋克", "机甲", "未来", "硬科幻"),
     has_progression=True,
     progression_label="科技等级/能力阶位",
     power_system_hint=(
@@ -278,6 +278,41 @@ _GAME = GenreProfile(
     ),
 )
 
+_ZOMBIE = GenreProfile(
+    key="丧尸末世",
+    aliases=("末世", "末日", "丧尸", "病毒末世", "废土", "求生末世"),
+    has_progression=True,
+    progression_label="进化等级/实力阶位",
+    power_system_hint=(
+        "以幸存者的异能觉醒、进化等级或丧尸的变异阶位建模，至少 6 阶；"
+        "规则强调资源（食物/弹药/安全屋）的稀缺与代价，变强要有清晰来源（晶核/病毒/觉醒）。"
+    ),
+    selling_point_guide=(
+        "卖点围绕：末日求生的紧张刺激、囤积资源与建立据点的发展爽感、"
+        "异能觉醒与越级反杀、丧尸潮压境的危机与人性考验。"
+    ),
+    core_conflict_guide=(
+        "核心矛盾建议'生存资源争夺 + 人性与秩序崩坏'：与丧尸潮、与争抢资源的"
+        "其他幸存者、与失控的势力/军方多线对抗，可由个人求生升级到据点、城市乃至重建文明。"
+    ),
+    worldview_guide=(
+        "构建逻辑自洽的末世背景：病毒起源与扩散规则、丧尸的分级与变异、"
+        "安全区/据点与废土地理；金手指（如空间/预知/异能）须有获取条件与限制。"
+    ),
+    tone_hint="紧张压抑、危机四伏，求生的残酷与据点发展的成就感交替。",
+    archetypes=(
+        "末日觉醒/重生先知的主角",
+        "并肩求生的队友或红颜",
+        "争夺资源的敌对幸存者势力头目",
+        "失控或别有用心的军方/组织代表",
+        "提供线索或庇护的关键配角",
+    ),
+    character_guide=(
+        "角色按进化等级与所属据点/势力分布；主角起点要低，留出觉醒与变强的成长线。"
+        "丧尸阵营可在 notes 体现其变异层级。"
+    ),
+)
+
 _GENERIC = GenreProfile(
     key="",
     has_progression=True,                     # 保守允许进阶，但措辞软化
@@ -304,6 +339,7 @@ SEED_PROFILES: tuple[GenreProfile, ...] = (
     _SUSPENSE,
     _ROMANCE,
     _GAME,
+    _ZOMBIE,
 )
 
 

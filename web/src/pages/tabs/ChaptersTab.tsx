@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { BatchModal } from "../../components/BatchModal";
 import { WriteChapterModal } from "../../components/WriteChapterModal";
+import { ExtendOutlineModal } from "../../components/ExtendOutlineModal";
+import { ConfirmModal } from "../../components/ConfirmModal";
 import type { RunningTask } from "../Workspace";
 
 export function ChaptersTab({
@@ -27,6 +29,9 @@ export function ChaptersTab({
   const [msg, setMsg] = useState("");
   const [showBatch, setShowBatch] = useState(false);
   const [showWrite, setShowWrite] = useState(false);
+  const [showExtend, setShowExtend] = useState(false);
+  const [resumming, setResumming] = useState(false);
+  const [showResumConfirm, setShowResumConfirm] = useState(false);
 
   const { data: ch } = useQuery({
     queryKey: ["chapter", slug, sel],
@@ -61,9 +66,10 @@ export function ChaptersTab({
     const { task_id } = await api.write(slug, { chapter: 0, ...opts });
     onTask(task_id, "写下一章");
   };
-  const extendOutline = async () => {
-    const { task_id } = await api.extendOutline(slug, 10);
-    onTask(task_id, "续写大纲（10 章）");
+  const extendOutline = async (count: number) => {
+    setShowExtend(false);
+    const { task_id } = await api.extendOutline(slug, count);
+    onTask(task_id, `续写大纲（${count} 章）`);
   };
   const startBatch = async (opts: {
     count: number;
@@ -86,6 +92,22 @@ export function ChaptersTab({
       setMsg("保存失败：" + e.message);
     }
   };
+  const resummarize = async () => {
+    if (sel === null) return;
+    setResumming(true);
+    setMsg("");
+    try {
+      const r = await api.resummarize(slug, sel);
+      setMsg(
+        "摘要已重建 ✓" + (r.outline_updated ? "，大纲摘要已同步" : ""),
+      );
+    } catch (e: any) {
+      setMsg("重建失败：" + e.message);
+    } finally {
+      setResumming(false);
+      setShowResumConfirm(false);
+    }
+  };
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 20 }}>
@@ -99,7 +121,7 @@ export function ChaptersTab({
             ✍ 下一章
           </button>
           <button onClick={() => setShowBatch(true)} disabled={allPlannedWritten}>
-            ⏩ 批量
+            ⏩ 批量续写
           </button>
         </div>
         {allPlannedWritten && (
@@ -114,8 +136,8 @@ export function ChaptersTab({
                 续写大纲会基于当前剧情进度生成后续章节细纲。
               </span>
             </div>
-            <button className="primary" onClick={extendOutline}>
-              ✚ 续写大纲（+10 章）
+            <button className="primary" onClick={() => setShowExtend(true)}>
+              ✚ 续写大纲
             </button>
           </div>
         )}
@@ -146,7 +168,17 @@ export function ChaptersTab({
               <h2 style={{ margin: 0 }}>
                 第 {ch.index} 章 {ch.title}
               </h2>
-              <div className="row">
+              {!editing && (
+                <button
+                  onClick={() => setShowResumConfirm(true)}
+                  disabled={resumming}
+                  title="作者手改正文后，据正文重新生成本章摘要并同步大纲"
+                  style={{ fontSize: 12, padding: "3px 10px", marginLeft: "auto" }}
+                >
+                  {resumming ? "生成中…" : "⟳ 重建摘要"}
+                </button>
+              )}
+              <div className="row" style={{ marginLeft: 24 }}>
                 {msg && <span className="muted">{msg}</span>}
                 {editing ? (
                   <>
@@ -184,6 +216,23 @@ export function ChaptersTab({
         <WriteChapterModal
           onClose={() => setShowWrite(false)}
           onConfirm={startWrite}
+        />
+      )}
+      {showExtend && (
+        <ExtendOutlineModal
+          onClose={() => setShowExtend(false)}
+          onConfirm={extendOutline}
+        />
+      )}
+      {showResumConfirm && (
+        <ConfirmModal
+          title="重建本章摘要"
+          message="将根据当前正文重新生成本章摘要，并同步更新大纲中该章的摘要。适合在你手动修改正文后使用。会消耗一次模型调用。是否继续？"
+          confirmText="重建摘要"
+          busy={resumming}
+          busyText="生成中…"
+          onConfirm={resummarize}
+          onClose={() => setShowResumConfirm(false)}
         />
       )}
     </div>

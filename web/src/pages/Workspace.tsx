@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { ProgressDrawer } from "../components/ProgressDrawer";
+import { DeleteBookModal } from "../components/DeleteBookModal";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { BibleTab } from "./tabs/BibleTab";
 import { CharactersTab } from "./tabs/CharactersTab";
@@ -27,8 +28,10 @@ export interface RunningTask {
 export function Workspace() {
   const { slug = "" } = useParams();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [tab, setTab] = useState("overview");
   const [task, setTask] = useState<RunningTask | null>(null);
+  const [showDelete, setShowDelete] = useState(false);
 
   const { data: ov } = useQuery({
     queryKey: ["overview", slug],
@@ -56,6 +59,13 @@ export function Workspace() {
             {t.label}
           </div>
         ))}
+        <div
+          className="nav-item"
+          onClick={() => setShowDelete(true)}
+          style={{ marginTop: 24, color: "var(--red)" }}
+        >
+          🗑 删除本书
+        </div>
       </div>
 
       <div className="content">
@@ -74,6 +84,18 @@ export function Workspace() {
           onClose={() => setTask(null)}
           onDone={() => {
             qc.invalidateQueries();
+          }}
+        />
+      )}
+
+      {showDelete && (
+        <DeleteBookModal
+          title={ov?.title ?? slug}
+          onClose={() => setShowDelete(false)}
+          onConfirm={async () => {
+            await api.deleteBook(slug);
+            qc.invalidateQueries({ queryKey: ["books"] });
+            navigate("/");
           }}
         />
       )}

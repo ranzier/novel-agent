@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { BatchModal } from "../../components/BatchModal";
 import { WriteChapterModal } from "../../components/WriteChapterModal";
+import { ExtendOutlineModal } from "../../components/ExtendOutlineModal";
 import type { RunningTask } from "../Workspace";
 
 export function OverviewTab({
@@ -18,6 +19,7 @@ export function OverviewTab({
   });
   const [showBatch, setShowBatch] = useState(false);
   const [showWrite, setShowWrite] = useState(false);
+  const [showExtend, setShowExtend] = useState(false);
 
   if (!ov) return <p className="muted">加载中…</p>;
   const st = ov.state ?? {};
@@ -27,9 +29,10 @@ export function OverviewTab({
     const { task_id } = await api.write(slug, { chapter: 0, ...opts });
     onTask(task_id, "写下一章");
   };
-  const extendOutline = async () => {
-    const { task_id } = await api.extendOutline(slug, 10);
-    onTask(task_id, "续写大纲（10 章）");
+  const extendOutline = async (count: number) => {
+    setShowExtend(false);
+    const { task_id } = await api.extendOutline(slug, count);
+    onTask(task_id, `续写大纲（${count} 章）`);
   };
   const startBatch = async (opts: {
     count: number;
@@ -54,8 +57,8 @@ export function OverviewTab({
         <h2 style={{ margin: 0 }}>{ov.title}</h2>
         <div className="row">
           {allPlannedWritten ? (
-            <button className="primary" onClick={extendOutline}>
-              ✚ 续写大纲（+10 章）
+            <button className="primary" onClick={() => setShowExtend(true)}>
+              ✚ 续写大纲
             </button>
           ) : (
             <button className="primary" onClick={() => setShowWrite(true)}>
@@ -117,6 +120,12 @@ export function OverviewTab({
         <WriteChapterModal
           onClose={() => setShowWrite(false)}
           onConfirm={startWrite}
+        />
+      )}
+      {showExtend && (
+        <ExtendOutlineModal
+          onClose={() => setShowExtend(false)}
+          onConfirm={extendOutline}
         />
       )}
     </div>

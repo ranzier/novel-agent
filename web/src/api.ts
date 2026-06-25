@@ -51,6 +51,8 @@ async function req<T>(url: string, opts?: RequestInit): Promise<T> {
 export const api = {
   listBooks: () => req<BookSummary[]>("/api/books"),
   overview: (slug: string) => req<Overview>(`/api/books/${slug}`),
+  deleteBook: (slug: string) =>
+    req<{ ok: boolean }>(`/api/books/${slug}`, { method: "DELETE" }),
   bible: (slug: string) => req<any>(`/api/books/${slug}/bible`),
   characters: (slug: string) => req<any>(`/api/books/${slug}/characters`),
   outline: (slug: string) => req<any>(`/api/books/${slug}/outline`),
@@ -80,6 +82,11 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ text }),
     }),
+  resummarize: (slug: string, n: number) =>
+    req<{ ok: boolean; summary: string; outline_updated: boolean }>(
+      `/api/books/${slug}/chapters/${n}/resummarize`,
+      { method: "POST" },
+    ),
 
   // 长任务
   createBook: (body: { idea: string; genre?: string; title?: string }) =>

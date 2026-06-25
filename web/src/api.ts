@@ -111,6 +111,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  rewrite: (slug: string, chapter: number, body: any) =>
+    req<TaskRef>(`/api/books/${slug}/rewrite/${chapter}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   reindex: (slug: string, rebuild = false) =>
     req<TaskRef>(`/api/books/${slug}/reindex?rebuild=${rebuild}`, {
       method: "POST",

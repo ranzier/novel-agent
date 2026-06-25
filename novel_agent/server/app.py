@@ -49,6 +49,15 @@ class RunBody(BaseModel):
     author_note: str = ""
 
 
+class RewriteBody(BaseModel):
+    words: int = 2500
+    no_review: bool = False
+    no_vector: bool = False
+    no_consolidate: bool = False
+    max_rewrites: int = 1
+    author_note: str = ""
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="novel-agent API",
@@ -452,6 +461,41 @@ def create_app() -> FastAPI:
             return result
 
         task = tasks.start("write", slug, work)
+        return {"task_id": task.id, "chapter": chapter}
+
+    # ---- POST /api/books/{slug}/rewrite/{chapter}  重写本章 ----
+    @app.post("/api/books/{slug}/rewrite/{chapter}")
+    def rewrite_chapter(slug: str, chapter: int, body: RewriteBody):
+        p = _open_project(slug)
+        _guard_busy(slug)
+        if not p.has_outline():
+            raise HTTPException(status_code=400, detail="还没有大纲")
+        from ..engine import write_one_chapter
+
+        outline = p.load_outline()
+        written = set(p.existing_chapter_indices())
+        if chapter not in written:
+            raise HTTPException(status_code=404, detail=f"第 {chapter} 章还没有写过，无法重写")
+        ch = outline.chapter(chapter)
+        if ch is None:
+            raise HTTPException(status_code=400, detail=f"大纲里没有第 {chapter} 章")
+        # 只有重写最新一章时才更新世界状态：重写旧章会用旧状态覆盖
+        # 反映后续进度的 state.json 快照，造成与后续章节不一致。
+        is_latest = chapter == max(written)
+
+        def work(rep):
+            gw = _gateway()
+            result = write_one_chapter(
+                gw, p, chapter=chapter, title=ch.title, words=body.words,
+                consolidate_mem=not body.no_consolidate,
+                do_review=not body.no_review, max_rewrites=body.max_rewrites,
+                use_vector=not body.no_vector, author_note=body.author_note,
+                update_world_state=is_latest,
+                reporter=rep,
+            )
+            return result
+
+        task = tasks.start("rewrite", slug, work)
         return {"task_id": task.id, "chapter": chapter}
 
     # ---- POST /api/books/{slug}/run  批量续写 ----

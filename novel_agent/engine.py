@@ -25,9 +25,14 @@ def write_one_chapter(
     max_rewrites: int,
     use_vector: bool = True,
     author_note: str = "",
+    update_world_state: bool = True,
     reporter: Reporter | None = None,
 ) -> dict | None:
-    """写一章的完整闭环。成功返回结果字典，失败返回 None。"""
+    """写一章的完整闭环。成功返回结果字典，失败返回 None。
+
+    update_world_state=False 时跳过 state.json 的覆盖（其余记忆照常更新）。
+    用于重写非最新章：避免用旧章状态覆盖反映后续进度的世界快照。
+    """
     rep = reporter or ConsoleReporter()
     from .editor import review_chapter
     from .memory import consolidate, index_chapter, recall_block
@@ -145,20 +150,24 @@ def write_one_chapter(
     # 固化入库：有未解决硬伤则不写进记忆，保留上一章干净状态
     if consolidate_mem and new_state is not None and not has_unresolved_errors:
         project.upsert_summary(summary)
-        project.save_state(new_state)
+        if update_world_state:
+            project.save_state(new_state)
+        else:
+            rep.info("重写的不是最新章，已跳过世界状态更新（state.json 保持不变）")
         # 用实际写出的内容回写大纲细纲，使大纲与正文一致
         try:
             if project.sync_outline_from_summary(summary):
                 rep.info("已据正文更新本章大纲摘要")
         except Exception as e:  # noqa: BLE001 - 同步失败不影响主流程
             rep.warn(f"大纲摘要同步失败（已跳过）：{e}")
-        tier = new_state.protagonist_tier or "—"
-        fore = len(new_state.foreshadowing)
-        dead = [c.name for c in new_state.characters if c.status == "死亡"]
-        rep.info(
-            f"记忆已更新：主角境界 {tier}；未回收伏笔 {fore} 条"
-            + (f"；已故 {'、'.join(dead)}" if dead else "")
-        )
+        if update_world_state:
+            tier = new_state.protagonist_tier or "—"
+            fore = len(new_state.foreshadowing)
+            dead = [c.name for c in new_state.characters if c.status == "死亡"]
+            rep.info(
+                f"记忆已更新：主角境界 {tier}；未回收伏笔 {fore} 条"
+                + (f"；已故 {'、'.join(dead)}" if dead else "")
+            )
 
         # 角色库自动晋升：把反复出场且被状态追踪的新角色补进角色库
         from .memory import promote_characters

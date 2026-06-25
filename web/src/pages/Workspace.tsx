@@ -62,7 +62,7 @@ export function Workspace() {
         <div
           className="nav-item"
           onClick={() => setShowDelete(true)}
-          style={{ marginTop: 24, color: "var(--red)" }}
+          style={{ marginTop: "auto", color: "var(--red)" }}
         >
           🗑 删除本书
         </div>

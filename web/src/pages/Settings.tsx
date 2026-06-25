@@ -94,6 +94,13 @@ const FIELDS: {
     group: "context",
     hint: "0~1，低于此相似度的片段不召回。越高越严格。",
   },
+  {
+    key: "CTX_OUTLINE_RECAP",
+    label: "续写大纲前情摘要章数",
+    sensitive: false,
+    group: "context",
+    hint: "续写大纲时注入最近几章的摘要作为前情背景，帮助 AI 衔接现阶段剧情。默认 10。",
+  },
 ];
 
 export function Settings() {

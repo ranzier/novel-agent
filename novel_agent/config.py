@@ -14,6 +14,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # 每本书的存放根目录
 BOOKS_DIR = PROJECT_ROOT / "books"
 
+# 应用级数据（非单本书内容）目录，与 books/ 平级
+APP_DATA_DIR = PROJECT_ROOT / "app_data"
+# 可编辑题材模板的持久化文件（首次运行由代码种子写入）
+GENRES_PATH = APP_DATA_DIR / "genres.json"
+
 # 默认模型：用最新的 Opus。可被 NOVEL_MODEL 覆盖。
 DEFAULT_MODEL = "claude-opus-4-8"
 
@@ -37,6 +42,7 @@ DEFAULT_RECENT_CHAR_BUDGET = 12000  # 近章正文总字数预算
 DEFAULT_SUMMARY_COUNT = 30        # 注入最多几条早期章节摘要
 DEFAULT_RECALL_TOP_K = 4          # 向量召回片段条数
 DEFAULT_RECALL_MIN_SCORE = 0.3    # 向量召回相似度阈值
+DEFAULT_OUTLINE_RECAP = 10        # 续写大纲时注入最近 N 章摘要作为前情
 
 
 def _env_int(key: str, default: int) -> int:
@@ -74,6 +80,7 @@ class Config:
     summary_count: int
     recall_top_k: int
     recall_min_score: float
+    outline_recap: int
 
     @classmethod
     def load(cls) -> "Config":
@@ -113,6 +120,9 @@ class Config:
             recall_top_k=_env_int("CTX_RECALL_TOP_K", DEFAULT_RECALL_TOP_K),
             recall_min_score=_env_float(
                 "CTX_RECALL_MIN_SCORE", DEFAULT_RECALL_MIN_SCORE
+            ),
+            outline_recap=_env_int(
+                "CTX_OUTLINE_RECAP", DEFAULT_OUTLINE_RECAP
             ),
         )
 

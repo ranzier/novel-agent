@@ -58,6 +58,20 @@ class RewriteBody(BaseModel):
     author_note: str = ""
 
 
+class GenreProfileBody(BaseModel):
+    key: str
+    aliases: list[str] = []
+    has_progression: bool = True
+    progression_label: str = ""
+    power_system_hint: str = ""
+    selling_point_guide: str = ""
+    core_conflict_guide: str = ""
+    worldview_guide: str = ""
+    tone_hint: str = ""
+    archetypes: list[str] = []
+    character_guide: str = ""
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="novel-agent API",
@@ -103,6 +117,66 @@ def create_app() -> FastAPI:
             return {"ok": True, "reply": text, "usage": gw.usage.as_dict()}
         except (RuntimeError, LLMError) as e:
             return {"ok": False, "error": str(e)}
+
+    # ---- GET /api/genres ----
+    @app.get("/api/genres")
+    def list_genres():
+        """题材注册表里的规范题材名，供前端选择器使用（仍允许自定义题材）。"""
+        from ..generate.genre_templates import known_genres
+
+        return {"genres": known_genres()}
+
+    # ---- GET /api/genres/templates  题材模板完整内容（管理页用） ----
+    @app.get("/api/genres/templates")
+    def list_genre_templates():
+        from ..generate import genre_store
+
+        return {"genres": [_to_plain(p) for p in genre_store.load_profiles()]}
+
+    # ---- PUT /api/genres/templates/{key}  新建或整体更新 ----
+    @app.put("/api/genres/templates/{key}")
+    def save_genre_template(key: str, body: GenreProfileBody):
+        from ..generate import genre_store
+        from ..generate.genre_templates import GenreProfile
+
+        if not key.strip():
+            raise HTTPException(status_code=400, detail="题材 key 不能为空")
+        if body.key.strip() != key.strip():
+            raise HTTPException(
+                status_code=400, detail="key 不一致，重命名请删除后新建"
+            )
+        profile = GenreProfile(
+            key=body.key.strip(),
+            aliases=tuple(a.strip() for a in body.aliases if a.strip()),
+            has_progression=body.has_progression,
+            progression_label=body.progression_label,
+            power_system_hint=body.power_system_hint,
+            selling_point_guide=body.selling_point_guide,
+            core_conflict_guide=body.core_conflict_guide,
+            worldview_guide=body.worldview_guide,
+            tone_hint=body.tone_hint,
+            archetypes=tuple(a.strip() for a in body.archetypes if a.strip()),
+            character_guide=body.character_guide,
+        )
+        saved = genre_store.upsert_profile(profile)
+        return {"ok": True, "genre": _to_plain(saved)}
+
+    # ---- DELETE /api/genres/templates/{key} ----
+    @app.delete("/api/genres/templates/{key}")
+    def delete_genre_template(key: str):
+        from ..generate import genre_store
+
+        if not genre_store.delete_profile(key):
+            raise HTTPException(status_code=404, detail=f"题材不存在：{key}")
+        return {"ok": True}
+
+    # ---- POST /api/genres/reset  恢复内置默认题材 ----
+    @app.post("/api/genres/reset")
+    def reset_genres():
+        from ..generate import genre_store
+
+        profiles = genre_store.reset_to_seed()
+        return {"ok": True, "genres": [_to_plain(p) for p in profiles]}
 
     # ---- GET /api/books ----
     @app.get("/api/books")
@@ -407,10 +481,15 @@ def create_app() -> FastAPI:
             char_names = [c.name for c in characters.characters]
             outline = p.load_outline()
             start_index = outline.max_chapter_index() + 1
+            # 前情摘要：取最近 N 章已写章节摘要（N 可在配置页调），帮助新章承接实际剧情
+            recap_n = gw.config.outline_recap
+            summaries = sorted(p.load_summaries(), key=lambda s: s.index)
+            recap = summaries[-recap_n:] if recap_n > 0 else []
             rep.step(f"续写第 {start_index} 起 {body.count} 章细纲")
             win = outline_planner.generate_chapter_window(
                 gw, bible, outline, start_index=start_index, count=body.count,
                 character_names=char_names, state=p.load_state(),
+                recap_summaries=recap,
             )
             added = outline.add_window(
                 win["chapters"], title=win["title"], arc=win["arc"]

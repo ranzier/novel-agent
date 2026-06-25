@@ -31,6 +31,20 @@ export interface TaskRef {
   chapter?: number;
 }
 
+export interface GenreTemplate {
+  key: string;
+  aliases: string[];
+  has_progression: boolean;
+  progression_label: string;
+  power_system_hint: string;
+  selling_point_guide: string;
+  core_conflict_guide: string;
+  worldview_guide: string;
+  tone_hint: string;
+  archetypes: string[];
+  character_guide: string;
+}
+
 async function req<T>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -50,6 +64,23 @@ async function req<T>(url: string, opts?: RequestInit): Promise<T> {
 
 export const api = {
   listBooks: () => req<BookSummary[]>("/api/books"),
+  listGenres: () => req<{ genres: string[] }>("/api/genres"),
+  genreTemplates: () =>
+    req<{ genres: GenreTemplate[] }>("/api/genres/templates"),
+  saveGenreTemplate: (key: string, body: GenreTemplate) =>
+    req<{ ok: boolean; genre: GenreTemplate }>(
+      `/api/genres/templates/${encodeURIComponent(key)}`,
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
+  deleteGenreTemplate: (key: string) =>
+    req<{ ok: boolean }>(
+      `/api/genres/templates/${encodeURIComponent(key)}`,
+      { method: "DELETE" },
+    ),
+  resetGenres: () =>
+    req<{ ok: boolean; genres: GenreTemplate[] }>("/api/genres/reset", {
+      method: "POST",
+    }),
   overview: (slug: string) => req<Overview>(`/api/books/${slug}`),
   deleteBook: (slug: string) =>
     req<{ ok: boolean }>(`/api/books/${slug}`, { method: "DELETE" }),

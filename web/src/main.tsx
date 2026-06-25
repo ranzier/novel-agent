@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { BookList } from "./pages/BookList";
 import { Workspace } from "./pages/Workspace";
 import { Settings } from "./pages/Settings";
+import { GenreTemplates } from "./pages/GenreTemplates";
 import "./styles.css";
 
 const queryClient = new QueryClient({
@@ -18,6 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route path="/" element={<BookList />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/genres" element={<GenreTemplates />} />
           <Route path="/book/:slug/*" element={<Workspace />} />
         </Routes>
       </BrowserRouter>

@@ -18,6 +18,7 @@ from ..config import (
     DEFAULT_EMBED_DIM,
     DEFAULT_EMBED_MODEL,
     DEFAULT_MODEL,
+    DEFAULT_OUTLINE_RECAP,
     DEFAULT_RECENT_CHAPTERS,
     DEFAULT_RECENT_CHAR_BUDGET,
     DEFAULT_SUMMARY_COUNT,
@@ -43,6 +44,7 @@ _FIELDS = {
     "CTX_SUMMARY_COUNT": False,
     "CTX_RECALL_TOP_K": False,
     "CTX_RECALL_MIN_SCORE": False,
+    "CTX_OUTLINE_RECAP": False,
 }
 
 
@@ -83,6 +85,7 @@ def get_config_view() -> dict:
         "CTX_SUMMARY_COUNT": str(DEFAULT_SUMMARY_COUNT),
         "CTX_RECALL_TOP_K": str(DEFAULT_RECALL_TOP_K),
         "CTX_RECALL_MIN_SCORE": str(DEFAULT_RECALL_MIN_SCORE),
+        "CTX_OUTLINE_RECAP": str(DEFAULT_OUTLINE_RECAP),
     }
     return out
 
@@ -149,6 +152,9 @@ def _write_env(values: dict[str, str]) -> None:
         _kv_or_comment("CTX_RECALL_TOP_K", values.get("CTX_RECALL_TOP_K", "")),
         _kv_or_comment(
             "CTX_RECALL_MIN_SCORE", values.get("CTX_RECALL_MIN_SCORE", "")
+        ),
+        _kv_or_comment(
+            "CTX_OUTLINE_RECAP", values.get("CTX_OUTLINE_RECAP", "")
         ),
         "",
     ]

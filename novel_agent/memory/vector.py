@@ -52,9 +52,12 @@ class VectorStore:
     def _save(self) -> None:
         self.vec_path.parent.mkdir(parents=True, exist_ok=True)
         np.save(self.vec_path, self._vectors)
-        self.meta_path.write_text(
-            json.dumps(self._meta, ensure_ascii=False), encoding="utf-8"
-        )
+        # 每条片段独立成行（合法 JSON 数组），便于查看
+        lines = [
+            "  " + json.dumps(m, ensure_ascii=False) for m in self._meta
+        ]
+        content = "[\n" + ",\n".join(lines) + "\n]" if lines else "[]"
+        self.meta_path.write_text(content, encoding="utf-8")
 
     @property
     def size(self) -> int:

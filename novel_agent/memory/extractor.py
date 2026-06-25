@@ -93,3 +93,47 @@ def consolidate(
         summary.title = chapter_title
     new_state.last_chapter = index
     return summary, new_state
+
+
+_SUMMARY_ONLY_PROMPT = """这是小说《{title}》第 {index} 章《{ch_title}》的正文。
+
+【本章正文】
+{body}
+
+请只抽取本章摘要，输出如下 JSON：
+{{
+  "index": {index},
+  "title": "{ch_title}",
+  "summary": "本章发生了什么（100字内）",
+  "events": ["关键事件1", "关键事件2"],
+  "characters": ["本章实际出场的角色名"],
+  "foreshadowing": ["本章新埋下的伏笔（无则空数组）"]
+}}
+
+只依据正文，不臆测、不脑补、不提前剧透。只输出 JSON。"""
+
+
+def extract_summary_only(
+    gateway: LLMGateway,
+    *,
+    title: str,
+    index: int,
+    chapter_title: str,
+    body: str,
+) -> ChapterSummary:
+    """仅从正文抽取章节摘要（不更新世界状态）。
+
+    用于作者手改正文后重建摘要——只同步摘要层，不动当前世界状态快照
+    （状态是截至最新章的当前快照，重抽中间章无干净的 prev_state 可依据）。
+    """
+    prompt = _SUMMARY_ONLY_PROMPT.format(
+        title=title, index=index, ch_title=chapter_title, body=body
+    )
+    data = gateway.complete_json(
+        prompt, system=_SYSTEM, task="extract", max_tokens=2048
+    )
+    summary = ChapterSummary.from_dict(data)
+    summary.index = index
+    if not summary.title:
+        summary.title = chapter_title
+    return summary

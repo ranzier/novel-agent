@@ -118,6 +118,18 @@ def create_app() -> FastAPI:
                 continue
         return out
 
+    # ---- DELETE /api/books/{slug} ----
+    @app.delete("/api/books/{slug}")
+    def delete_book(slug: str):
+        p = _open_project(slug)
+        if tasks.is_busy(slug):
+            raise HTTPException(status_code=409, detail="该书正有任务进行中，无法删除")
+        try:
+            p.delete()
+        except RuntimeError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return {"ok": True}
+
     # ---- GET /api/books/{slug} ----
     @app.get("/api/books/{slug}")
     def get_book_overview(slug: str):
@@ -263,6 +275,41 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail="正文不能为空")
         p.write_chapter(n, text)
         return {"ok": True, "chars": len(text)}
+
+    @app.post("/api/books/{slug}/chapters/{n}/resummarize")
+    def resummarize_chapter(slug: str, n: int):
+        """重新生成某章摘要并同步大纲摘要（作者手改正文后用）。
+
+        只重做摘要层，不动世界状态快照。单次 LLM 调用，同步返回。
+        """
+        from ..llm import LLMError, LLMGateway
+        from ..memory import extract_summary_only
+
+        p = _open_project(slug)
+        text = p.read_chapter(n)
+        if text is None:
+            raise HTTPException(status_code=404, detail=f"第 {n} 章不存在")
+        bible = p.load_bible()
+        title = ""
+        if p.has_outline():
+            ch = p.load_outline().chapter(n)
+            title = ch.title if ch else ""
+        try:
+            gw = LLMGateway(Config.load())
+            summary = extract_summary_only(
+                gw, title=bible.title, index=n,
+                chapter_title=title, body=text,
+            )
+        except (RuntimeError, LLMError) as e:
+            raise HTTPException(status_code=502, detail=f"摘要生成失败：{e}")
+        p.upsert_summary(summary)
+        outline_changed = p.sync_outline_from_summary(summary)
+        return {
+            "ok": True,
+            "summary": summary.summary,
+            "outline_updated": outline_changed,
+            "usage": gw.usage.as_dict(),
+        }
 
     # ============ 长任务 ============
     def _gateway() -> "LLMGateway":  # noqa: F821

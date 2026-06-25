@@ -56,6 +56,21 @@ class Project:
             if p.is_dir() and (p / "bible.json").exists()
         )
 
+    def delete(self, books_dir: Path = BOOKS_DIR) -> None:
+        """彻底删除本书的整个目录（不可逆）。
+
+        安全校验：root 必须确实位于 books_dir 之下，且不等于 books_dir 本身，
+        防止配置异常时误删其它路径。
+        """
+        import shutil
+
+        root = self.root.resolve()
+        base = books_dir.resolve()
+        if base not in root.parents or root == base:
+            raise RuntimeError(f"拒绝删除：{root} 不在书库目录内")
+        if root.exists():
+            shutil.rmtree(root)
+
     # ---- 路径 ----
     @property
     def bible_path(self) -> Path:

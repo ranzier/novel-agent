@@ -6,7 +6,7 @@
 from .short_term import recent_context, RecentContext
 from .mid_term import mid_term_block
 from .state_models import ChapterSummary, CharacterState, WorldState
-from .extractor import consolidate
+from .extractor import consolidate, extract_summary_only
 from .embedder import Embedder, EmbedError
 from .vector import VectorStore, Chunk, SearchHit
 from .retrieval import split_chapter, index_chapter, recall_block
@@ -20,6 +20,7 @@ __all__ = [
     "CharacterState",
     "WorldState",
     "consolidate",
+    "extract_summary_only",
     "Embedder",
     "EmbedError",
     "VectorStore",

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
+import { ExtendOutlineModal } from "../../components/ExtendOutlineModal";
 import type { RunningTask } from "../Workspace";
 
 export function OutlineTab({
@@ -16,19 +17,30 @@ export function OutlineTab({
     queryFn: () => api.outline(slug),
     retry: false,
   });
-  const [volumes, setVolumes] = useState(5);
-  const [chapters, setChapters] = useState(10);
+  const [firstWindow, setFirstWindow] = useState(10);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
+  const [showExtend, setShowExtend] = useState(false);
 
   useEffect(() => {
     if (data) setText(JSON.stringify(data, null, 2));
   }, [data]);
 
   const gen = async () => {
-    const { task_id } = await api.genOutline(slug, { volumes, chapters });
+    const { task_id } = await api.genOutline(slug, { window: firstWindow });
     onTask(task_id, "生成大纲");
+  };
+
+  const extendOutline = async (count: number) => {
+    setShowExtend(false);
+    setMsg("");
+    try {
+      const { task_id } = await api.extendOutline(slug, count);
+      onTask(task_id, `续写大纲（${count} 章）`);
+    } catch (e: any) {
+      setMsg("续写大纲失败：" + e.message);
+    }
   };
 
   const save = async () => {
@@ -55,18 +67,20 @@ export function OutlineTab({
       <div className="card" style={{ maxWidth: 420 }}>
         <h3 style={{ marginTop: 0 }}>还没有大纲</h3>
         <div className="row" style={{ margin: "12px 0" }}>
-          <label className="muted">卷数</label>
+          <label className="muted">首次生成章数</label>
           <input
             type="number"
-            value={volumes}
-            onChange={(e) => setVolumes(+e.target.value)}
+            min={1}
+            max={30}
+            value={firstWindow}
+            onChange={(e) =>
+              setFirstWindow(Math.min(30, Math.max(1, +e.target.value)))
+            }
           />
-          <label className="muted">每卷章数</label>
-          <input
-            type="number"
-            value={chapters}
-            onChange={(e) => setChapters(+e.target.value)}
-          />
+        </div>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+          先生成全书骨架（主线与各卷弧光，卷数由 AI 按故事体量自定），
+          再细化开头这 {firstWindow} 章的章节细纲。后续可在大纲页「续写大纲」。
         </div>
         <button className="primary" onClick={gen}>
           生成大纲
@@ -99,7 +113,10 @@ export function OutlineTab({
               </button>
             </>
           ) : (
-            <button onClick={() => setEditing(true)}>编辑大纲</button>
+            <>
+              <button onClick={() => setShowExtend(true)}>✚ 续写大纲</button>
+              <button onClick={() => setEditing(true)}>编辑大纲</button>
+            </>
           )}
         </div>
       </div>
@@ -177,6 +194,13 @@ export function OutlineTab({
             </div>
           ))}
         </>
+      )}
+
+      {showExtend && (
+        <ExtendOutlineModal
+          onClose={() => setShowExtend(false)}
+          onConfirm={extendOutline}
+        />
       )}
     </div>
   );

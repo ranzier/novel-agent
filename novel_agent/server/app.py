@@ -19,7 +19,6 @@ class InitBody(BaseModel):
 
 
 class OutlineBody(BaseModel):
-    volumes: int = 5
     window: int = 10
     skeleton_only: bool = False
 
@@ -441,11 +440,11 @@ def create_app() -> FastAPI:
             bible = p.load_bible()
             characters = p.load_characters()
             char_names = [c.name for c in characters.characters]
-            rep.step(f"规划 {body.volumes} 卷骨架")
-            outline = outline_planner.generate_skeleton(gw, bible, body.volumes)
+            rep.step("规划全书骨架")
+            outline = outline_planner.generate_skeleton(gw, bible)
             rep.info(f"骨架完成：{len(outline.arc_plan)} 卷弧光")
             if not body.skeleton_only:
-                rep.step(f"规划接下来 {body.window} 章细纲")
+                rep.step(f"规划首批 {body.window} 章细纲")
                 win = outline_planner.generate_chapter_window(
                     gw, bible, outline, start_index=1, count=body.window,
                     character_names=char_names, state=p.load_state(),

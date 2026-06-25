@@ -24,7 +24,8 @@ _SKELETON_PROMPT = """这是一本中文网络小说的设定圣经：
 
 {bible_json}
 
-请设计【全书骨架大纲】，规划 {volumes} 卷。
+请设计【全书骨架大纲】。卷数由你按故事体量自行决定（通常 3~6 卷，长篇可更多），
+每卷一段弧光，作为后续写作的方向蓝图。
 只输出如下结构的 JSON：
 {{
   "premise": "全书核心立意（一句话）",
@@ -87,13 +88,11 @@ _CHAPTERS_PROMPT = """这是一本中文网络小说的设定与本卷信息。
 - 出场角色名尽量用【已知角色】里的名字。"""
 
 
-def generate_skeleton(
-    gateway: LLMGateway, bible: Bible, volumes: int = 5
-) -> Outline:
-    """生成全书骨架（主线 + 各卷弧光）。弧光存入 arc_plan 作方向参考，
-    不直接承载章节——章节由滑动窗口生成后追加到 volumes。"""
+def generate_skeleton(gateway: LLMGateway, bible: Bible) -> Outline:
+    """生成全书骨架（主线 + 各卷弧光）。卷数由模型按故事体量自定。
+    弧光存入 arc_plan 作方向参考，不直接承载章节——章节由滑动窗口生成后追加到 volumes。"""
     bible_json = json.dumps(_to_plain(bible), ensure_ascii=False, indent=2)
-    prompt = _SKELETON_PROMPT.format(bible_json=bible_json, volumes=volumes)
+    prompt = _SKELETON_PROMPT.format(bible_json=bible_json)
     data = gateway.complete_json(
         prompt, system=_SYSTEM, task="outline", max_tokens=4096
     )

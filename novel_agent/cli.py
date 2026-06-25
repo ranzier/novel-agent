@@ -138,7 +138,6 @@ def init(
 @app.command()
 def outline(
     book: str = typer.Option(..., "--book", "-b", help="项目 slug（见 novel list）"),
-    volumes: int = typer.Option(5, "--volumes", "-v", help="规划卷数（骨架）"),
     window: int = typer.Option(
         10, "--window", "-w", help="先生成未来多少章的细纲（滑动窗口）"
     ),
@@ -146,7 +145,7 @@ def outline(
         False, "--skeleton-only", help="只生成骨架，不展开章节细纲"
     ),
 ) -> None:
-    """生成大纲：先骨架（卷弧光），再只展开未来 N 章细纲（滑动窗口）。
+    """生成大纲：先骨架（卷弧光，卷数由模型自定），再只展开未来 N 章细纲（滑动窗口）。
 
     不一次铺满全书——后期剧情不被早期规划绑架。写完已规划章节后，
     用 `novel extend-outline` 基于实际进度续写下一窗口。
@@ -165,9 +164,9 @@ def outline(
     characters = project.load_characters()
     char_names = [c.name for c in characters.characters]
 
-    with console.status(f"正在规划 {volumes} 卷骨架…"):
+    with console.status("正在规划全书骨架…"):
         try:
-            outline_obj = outline_planner.generate_skeleton(gateway, bible, volumes)
+            outline_obj = outline_planner.generate_skeleton(gateway, bible)
         except LLMError as e:
             console.print(f"[bold red]生成失败：[/]{e}")
             raise typer.Exit(code=1)

@@ -32,6 +32,7 @@ export function ChaptersTab({
   const [showExtend, setShowExtend] = useState(false);
   const [resumming, setResumming] = useState(false);
   const [showResumConfirm, setShowResumConfirm] = useState(false);
+  const [showRewrite, setShowRewrite] = useState(false);
 
   const { data: ch } = useQuery({
     queryKey: ["chapter", slug, sel],
@@ -108,6 +109,12 @@ export function ChaptersTab({
       setShowResumConfirm(false);
     }
   };
+  const rewrite = async (opts: { words: number; author_note: string }) => {
+    if (sel === null) return;
+    setShowRewrite(false);
+    const { task_id } = await api.rewrite(slug, sel, opts);
+    onTask(task_id, `重写第 ${sel} 章`);
+  };
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 20 }}>
@@ -178,6 +185,15 @@ export function ChaptersTab({
                   {resumming ? "生成中…" : "⟳ 重建摘要"}
                 </button>
               )}
+              {!editing && (
+                <button
+                  onClick={() => setShowRewrite(true)}
+                  title="重新生成本章正文（覆盖现有内容，并更新摘要与世界状态）"
+                  style={{ fontSize: 12, padding: "3px 10px", marginLeft: 8 }}
+                >
+                  ✍ 重写本章
+                </button>
+              )}
               <div className="row" style={{ marginLeft: 24 }}>
                 {msg && <span className="muted">{msg}</span>}
                 {editing ? (
@@ -233,6 +249,14 @@ export function ChaptersTab({
           busyText="生成中…"
           onConfirm={resummarize}
           onClose={() => setShowResumConfirm(false)}
+        />
+      )}
+      {showRewrite && (
+        <WriteChapterModal
+          title={`重写第 ${sel} 章`}
+          confirmText="开始重写"
+          onClose={() => setShowRewrite(false)}
+          onConfirm={rewrite}
         />
       )}
     </div>

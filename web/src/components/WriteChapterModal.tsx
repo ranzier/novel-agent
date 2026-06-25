@@ -5,9 +5,13 @@ import { useState } from "react";
 export function WriteChapterModal({
   onClose,
   onConfirm,
+  title = "写下一章",
+  confirmText = "开始写作",
 }: {
   onClose: () => void;
   onConfirm: (opts: { words: number; author_note: string }) => void;
+  title?: string;
+  confirmText?: string;
 }) {
   const [words, setWords] = useState(2500);
   const [note, setNote] = useState("");
@@ -19,7 +23,7 @@ export function WriteChapterModal({
         style={{ width: 460, margin: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ marginTop: 0 }}>写下一章</h3>
+        <h3 style={{ marginTop: 0 }}>{title}</h3>
 
         <label className="muted">本章思路 / 要求（可选）</label>
         <textarea
@@ -49,7 +53,7 @@ export function WriteChapterModal({
             className="primary"
             onClick={() => onConfirm({ words, author_note: note.trim() })}
           >
-            开始写作
+            {confirmText}
           </button>
         </div>
       </div>

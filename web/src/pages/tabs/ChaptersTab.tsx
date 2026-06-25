@@ -18,7 +18,11 @@ export function ChaptersTab({
     queryKey: ["chapters", slug],
     queryFn: () => api.chapters(slug),
   });
-  const { data: outline } = useQuery({
+  const {
+    data: outline,
+    isError: outlineError,
+    isLoading: outlineLoading,
+  } = useQuery({
     queryKey: ["outline", slug],
     queryFn: () => api.outline(slug),
     retry: false,
@@ -33,6 +37,7 @@ export function ChaptersTab({
   const [resumming, setResumming] = useState(false);
   const [showResumConfirm, setShowResumConfirm] = useState(false);
   const [showRewrite, setShowRewrite] = useState(false);
+  const [actionMsg, setActionMsg] = useState("");
 
   const { data: ch } = useQuery({
     queryKey: ["chapter", slug, sel],
@@ -61,16 +66,29 @@ export function ChaptersTab({
     ? Math.max(...chapters.map((c) => c.index))
     : 0;
   const allPlannedWritten = plannedMax > 0 && writtenMax >= plannedMax;
+  // 大纲接口 404 表示尚未生成大纲；此时无法写章，需先去「大纲」页生成
+  const noOutline = !outlineLoading && (outlineError || plannedMax === 0);
 
   const startWrite = async (opts: { words: number; author_note: string }) => {
     setShowWrite(false);
-    const { task_id } = await api.write(slug, { chapter: 0, ...opts });
-    onTask(task_id, "写下一章");
+    setActionMsg("");
+    try {
+      const { task_id } = await api.write(slug, { chapter: 0, ...opts });
+      onTask(task_id, "写下一章");
+    } catch (e: any) {
+      // 后端在无大纲 / 下一章未规划 / 全部写完时返回 4xx，提示用户先续写大纲
+      setActionMsg(e.message || "写作失败，请先确认大纲已规划到下一章");
+    }
   };
   const extendOutline = async (count: number) => {
     setShowExtend(false);
-    const { task_id } = await api.extendOutline(slug, count);
-    onTask(task_id, `续写大纲（${count} 章）`);
+    setActionMsg("");
+    try {
+      const { task_id } = await api.extendOutline(slug, count);
+      onTask(task_id, `续写大纲（${count} 章）`);
+    } catch (e: any) {
+      setActionMsg(e.message || "续写大纲失败");
+    }
   };
   const startBatch = async (opts: {
     count: number;
@@ -78,11 +96,16 @@ export function ChaptersTab({
     author_note: string;
   }) => {
     setShowBatch(false);
-    const { task_id } = await api.run(slug, opts);
-    onTask(
-      task_id,
-      opts.count > 0 ? `批量续写 ${opts.count} 章` : "批量续写到末尾",
-    );
+    setActionMsg("");
+    try {
+      const { task_id } = await api.run(slug, opts);
+      onTask(
+        task_id,
+        opts.count > 0 ? `批量续写 ${opts.count} 章` : "批量续写到末尾",
+      );
+    } catch (e: any) {
+      setActionMsg(e.message || "批量续写失败，请先确认大纲已规划到下一章");
+    }
   };
   const save = async () => {
     try {
@@ -123,14 +146,41 @@ export function ChaptersTab({
           <button
             className="primary"
             onClick={() => setShowWrite(true)}
-            disabled={allPlannedWritten}
+            disabled={allPlannedWritten || noOutline}
           >
             ✍ 下一章
           </button>
-          <button onClick={() => setShowBatch(true)} disabled={allPlannedWritten}>
+          <button
+            onClick={() => setShowBatch(true)}
+            disabled={allPlannedWritten || noOutline}
+          >
             ⏩ 批量续写
           </button>
         </div>
+        {noOutline && (
+          <div
+            className="card"
+            style={{ marginBottom: 12, padding: 12, fontSize: 13 }}
+          >
+            <div style={{ marginBottom: 4 }}>还没有大纲，无法写章节。</div>
+            <span className="muted">
+              请先到「大纲」标签页生成大纲，再回来写下一章。
+            </span>
+          </div>
+        )}
+        {actionMsg && (
+          <div
+            className="card"
+            style={{
+              marginBottom: 12,
+              padding: 12,
+              fontSize: 13,
+              color: "var(--red)",
+            }}
+          >
+            {actionMsg}
+          </div>
+        )}
         {allPlannedWritten && (
           <div
             className="card"

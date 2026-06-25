@@ -20,19 +20,30 @@ export function OverviewTab({
   const [showBatch, setShowBatch] = useState(false);
   const [showWrite, setShowWrite] = useState(false);
   const [showExtend, setShowExtend] = useState(false);
+  const [actionMsg, setActionMsg] = useState("");
 
   if (!ov) return <p className="muted">加载中…</p>;
   const st = ov.state ?? {};
 
   const startWrite = async (opts: { words: number; author_note: string }) => {
     setShowWrite(false);
-    const { task_id } = await api.write(slug, { chapter: 0, ...opts });
-    onTask(task_id, "写下一章");
+    setActionMsg("");
+    try {
+      const { task_id } = await api.write(slug, { chapter: 0, ...opts });
+      onTask(task_id, "写下一章");
+    } catch (e: any) {
+      setActionMsg(e.message || "写作失败，请先确认大纲已规划到下一章");
+    }
   };
   const extendOutline = async (count: number) => {
     setShowExtend(false);
-    const { task_id } = await api.extendOutline(slug, count);
-    onTask(task_id, `续写大纲（${count} 章）`);
+    setActionMsg("");
+    try {
+      const { task_id } = await api.extendOutline(slug, count);
+      onTask(task_id, `续写大纲（${count} 章）`);
+    } catch (e: any) {
+      setActionMsg(e.message || "续写大纲失败");
+    }
   };
   const startBatch = async (opts: {
     count: number;
@@ -40,13 +51,20 @@ export function OverviewTab({
     author_note: string;
   }) => {
     setShowBatch(false);
-    const { task_id } = await api.run(slug, opts);
-    onTask(
-      task_id,
-      opts.count > 0 ? `批量续写 ${opts.count} 章` : "批量续写到末尾",
-    );
+    setActionMsg("");
+    try {
+      const { task_id } = await api.run(slug, opts);
+      onTask(
+        task_id,
+        opts.count > 0 ? `批量续写 ${opts.count} 章` : "批量续写到末尾",
+      );
+    } catch (e: any) {
+      setActionMsg(e.message || "批量续写失败，请先确认大纲已规划到下一章");
+    }
   };
 
+  // total 为 0 表示尚未生成大纲，无法写章
+  const noOutline = ov.progress.total === 0;
   // 已写章数 ≥ 已规划章数 → 大纲已写完，需续写大纲
   const allPlannedWritten =
     ov.progress.total > 0 && ov.progress.written >= ov.progress.total;
@@ -61,15 +79,39 @@ export function OverviewTab({
               ✚ 续写大纲
             </button>
           ) : (
-            <button className="primary" onClick={() => setShowWrite(true)}>
+            <button
+              className="primary"
+              onClick={() => setShowWrite(true)}
+              disabled={noOutline}
+            >
               ✍ 写下一章
             </button>
           )}
-          <button onClick={() => setShowBatch(true)} disabled={allPlannedWritten}>
+          <button
+            onClick={() => setShowBatch(true)}
+            disabled={allPlannedWritten || noOutline}
+          >
             ⏩ 批量续写
           </button>
         </div>
       </div>
+
+      {noOutline && (
+        <div className="card" style={{ padding: 12, fontSize: 13 }}>
+          <div style={{ marginBottom: 4 }}>还没有大纲，无法写章节。</div>
+          <span className="muted">
+            请先到「大纲」标签页生成大纲，再回来写下一章。
+          </span>
+        </div>
+      )}
+      {actionMsg && (
+        <div
+          className="card"
+          style={{ padding: 12, fontSize: 13, color: "var(--red)" }}
+        >
+          {actionMsg}
+        </div>
+      )}
 
       <div className="card">
         <div className="muted">金手指</div>

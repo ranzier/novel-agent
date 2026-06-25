@@ -69,6 +69,8 @@ textarea { resize: vertical; line-height: 1.7; }
   background: var(--panel);
   border-right: 1px solid var(--border);
   padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
 }
 .sidebar h3 { font-size: 15px; margin: 0 0 4px; }
 .nav-item {

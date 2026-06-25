@@ -12,7 +12,7 @@ import json
 
 from ..bible import Bible
 from ..llm import LLMGateway
-from ..memory.state_models import WorldState
+from ..memory.state_models import ChapterSummary, WorldState
 from ..storage import _to_plain
 from .outline_models import Outline, Volume
 
@@ -167,6 +167,9 @@ _WINDOW_PROMPT = """这是一本中文网络小说，现在要规划【接下来
 【当前进度与世界状态】
 {progress}
 
+【前情摘要】（最近若干章实际写出的剧情，新章须自然承接）
+{recap}
+
 【已知角色】
 {characters}
 
@@ -226,6 +229,15 @@ def _progress_brief(state: WorldState, last_written: int) -> str:
     return "\n".join(parts)
 
 
+def _recap_brief(summaries: list[ChapterSummary]) -> str:
+    """把最近若干章摘要渲染成前情块，复用与写章一致的格式。"""
+    if not summaries:
+        return "（暂无前情摘要，或开篇阶段）"
+    ordered = sorted(summaries, key=lambda s: s.index)
+    lines = [f"第{s.index}章《{s.title}》：{s.summary}" for s in ordered]
+    return "\n".join(lines)
+
+
 def generate_chapter_window(
     gateway: LLMGateway,
     bible: Bible,
@@ -235,12 +247,15 @@ def generate_chapter_window(
     count: int,
     character_names: list[str],
     state: WorldState | None = None,
+    recap_summaries: list[ChapterSummary] | None = None,
 ) -> dict:
     """滑动窗口：生成从 start_index 起连续 count 章的细纲。
 
-    基于设定 + 卷骨架 + 当前进度/世界状态，让新章节贴合实际剧情走向，
-    而非被早期一次性规划绑架。返回 {title, arc, chapters}，
+    基于设定 + 卷骨架 + 当前进度/世界状态 + 最近若干章前情摘要，让新章节贴合
+    实际剧情走向，而非被早期一次性规划绑架。返回 {title, arc, chapters}，
     由调用方作为「新的一卷」并入大纲。
+
+    recap_summaries：最近 N 章摘要（由调用方按配置切好传入），渲染为前情块。
     """
     tiers = " → ".join(t.name for t in bible.power_system.tiers) or "（未定义）"
     last_written = (state.last_chapter if state else 0)
@@ -252,6 +267,7 @@ def generate_chapter_window(
         main_plot=outline.main_plot or "（未定义）",
         volumes_brief=_volumes_brief(outline),
         progress=_progress_brief(state or WorldState(), last_written),
+        recap=_recap_brief(recap_summaries or []),
         characters="、".join(character_names) or "（暂无）",
         count=count,
         start_index=start_index,

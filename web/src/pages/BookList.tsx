@@ -4,6 +4,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { ProgressDrawer } from "../components/ProgressDrawer";
 
+// /api/genres 拉取失败时的本地兜底，仅作降级安全网，非真相源。
+const FALLBACK_GENRES = ["玄幻", "都市", "历史", "科幻", "悬疑", "言情", "游戏"];
+// 下拉里的"自定义"哨兵值，选中后显示自由输入框。
+const CUSTOM_GENRE = "__custom__";
+
 export function BookList() {
   const qc = useQueryClient();
   const { data: books, isLoading } = useQuery({
@@ -18,8 +23,11 @@ export function BookList() {
       <div className="spread" style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>📚 网文写作 Agent</h1>
         <div className="row">
+          <Link to="/genres">
+            <button>🏷 题材管理</button>
+          </Link>
           <Link to="/settings">
-            <button>⚙ 配置</button>
+            <button>⚙ 配置管理</button>
           </Link>
           <button className="primary" onClick={() => setShowNew(true)}>
             + 新建项目
@@ -82,13 +90,26 @@ function NewBookModal({
   onClose: () => void;
   onStart: (taskId: string) => void;
 }) {
+  const { data: genreData } = useQuery({
+    queryKey: ["genres"],
+    queryFn: api.listGenres,
+    retry: false,
+  });
+  // 后端注册表为唯一真相源；拉取失败时退回本地兜底，保证选择器始终可用。
+  const genres = genreData?.genres?.length ? genreData.genres : FALLBACK_GENRES;
+
   const [idea, setIdea] = useState("");
   const [genre, setGenre] = useState("玄幻");
+  const [customGenre, setCustomGenre] = useState("");
   const [title, setTitle] = useState("");
+
+  const isCustom = genre === CUSTOM_GENRE;
+  const finalGenre = isCustom ? customGenre.trim() : genre;
 
   const submit = async () => {
     if (!idea.trim()) return;
-    const { task_id } = await api.createBook({ idea, genre, title });
+    if (isCustom && !finalGenre) return;
+    const { task_id } = await api.createBook({ idea, genre: finalGenre, title });
     onStart(task_id);
   };
 
@@ -109,11 +130,21 @@ function NewBookModal({
           style={{ margin: "6px 0 12px" }}
         />
         <div className="row" style={{ marginBottom: 16 }}>
-          <input
-            value={genre}
-            onChange={(e) => setGenre(e.target.value)}
-            placeholder="题材"
-          />
+          <select value={genre} onChange={(e) => setGenre(e.target.value)}>
+            {genres.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+            <option value={CUSTOM_GENRE}>自定义…</option>
+          </select>
+          {isCustom && (
+            <input
+              value={customGenre}
+              onChange={(e) => setCustomGenre(e.target.value)}
+              placeholder="输入题材"
+            />
+          )}
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}

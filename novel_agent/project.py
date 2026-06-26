@@ -13,7 +13,7 @@ from .bible import Bible, CharacterBook
 from .config import BOOKS_DIR
 from .generate.outline_models import Outline
 from .memory.state_models import ChapterSummary, WorldState
-from .storage import read_json, write_json
+from .storage import read_json, write_json, write_text
 
 
 def slugify(name: str) -> str:
@@ -215,8 +215,7 @@ class Project:
     # ---- 正文 ----
     def write_chapter(self, index: int, text: str) -> Path:
         path = self.chapter_path(index)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        write_text(path, text)
         return path
 
     def read_chapter(self, index: int) -> str | None:

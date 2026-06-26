@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -51,13 +53,49 @@ class VectorStore:
 
     def _save(self) -> None:
         self.vec_path.parent.mkdir(parents=True, exist_ok=True)
-        np.save(self.vec_path, self._vectors)
         # 每条片段独立成行（合法 JSON 数组），便于查看
         lines = [
             "  " + json.dumps(m, ensure_ascii=False) for m in self._meta
         ]
         content = "[\n" + ",\n".join(lines) + "\n]" if lines else "[]"
-        self.meta_path.write_text(content, encoding="utf-8")
+        # 两个文件各自原子写：先矩阵后元数据，避免单文件半写损坏；
+        # 进程中途被打断时原文件不受影响（os.replace 同盘原子替换）。
+        self._atomic_save_npy(self.vec_path, self._vectors)
+        self._atomic_write_text(self.meta_path, content)
+
+    @staticmethod
+    def _atomic_save_npy(path: Path, arr: "np.ndarray") -> None:
+        # np.save 给无后缀路径会自动追加 .npy，故临时文件直接带 .npy 后缀，
+        # 用 allow_pickle=False 写完再原子替换到目标。
+        fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".npy")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                np.save(f, arr, allow_pickle=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+
+    @staticmethod
+    def _atomic_write_text(path: Path, text: str) -> None:
+        fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(text)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
     @property
     def size(self) -> int:

@@ -1,15 +1,45 @@
-"""读写辅助：JSON / YAML，统一 UTF-8、中文不转义、格式化。"""
+"""读写辅助：JSON / YAML，统一 UTF-8、中文不转义、格式化。
+
+写入一律走 _atomic_write：先写同目录临时文件再 os.replace 原子替换，
+避免进程在写入中途被打断（Ctrl+C / kill / 崩溃）导致文件半写损坏。
+"""
 
 from __future__ import annotations
 
 import dataclasses
 import json
+import os
+import tempfile
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar
 
 import yaml
 
 T = TypeVar("T")
+
+
+def _atomic_write(path: Path, write: Callable[[Any], None]) -> None:
+    """原子写文件：临时文件写完 + fsync 后 os.replace 替换目标。
+
+    write 接收一个已打开的文本句柄，负责把内容写进去。
+    崩在写临时文件阶段时原文件不受影响；os.replace 在同一文件系统内是原子操作。
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # 临时文件放在目标同目录，确保与目标同一文件系统，rename 才能原子
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            write(f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        # 出错清掉临时文件，绝不触碰原文件
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def read_json(path: Path) -> Any:
@@ -18,11 +48,13 @@ def read_json(path: Path) -> Any:
 
 
 def write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = _to_plain(data)
-    with path.open("w", encoding="utf-8") as f:
+
+    def _w(f: Any) -> None:
         json.dump(payload, f, ensure_ascii=False, indent=2)
         f.write("\n")
+
+    _atomic_write(path, _w)
 
 
 def read_yaml(path: Path) -> Any:
@@ -31,10 +63,16 @@ def read_yaml(path: Path) -> Any:
 
 
 def write_yaml(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = _to_plain(data)
-    with path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False)
+    _atomic_write(
+        path,
+        lambda f: yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False),
+    )
+
+
+def write_text(path: Path, text: str) -> None:
+    """原子写纯文本（如章节正文）。"""
+    _atomic_write(path, lambda f: f.write(text))
 
 
 def _to_plain(data: Any) -> Any:

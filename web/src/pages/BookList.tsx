@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { ProgressDrawer } from "../components/ProgressDrawer";
+import { ThemeSwitcher } from "../components/ThemeSwitcher";
 
 // /api/genres 拉取失败时的本地兜底，仅作降级安全网，非真相源。
 const FALLBACK_GENRES = ["玄幻", "都市", "历史", "科幻", "悬疑", "言情", "游戏"];
@@ -23,6 +24,7 @@ export function BookList() {
       <div className="spread" style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>📚 网文写作 Agent</h1>
         <div className="row">
+          <ThemeSwitcher />
           <Link to="/genres">
             <button>🏷 题材管理</button>
           </Link>

@@ -6,7 +6,10 @@ import { BookList } from "./pages/BookList";
 import { Workspace } from "./pages/Workspace";
 import { Settings } from "./pages/Settings";
 import { GenreTemplates } from "./pages/GenreTemplates";
+import { initTheme } from "./theme";
 import "./styles.css";
+
+initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },

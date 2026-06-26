@@ -1,4 +1,35 @@
-:root {
+:root,
+:root[data-theme="sepia"] {
+  /* 默认：报纸/羊皮纸淡黄，护眼，贴近正规小说阅读平台 */
+  --bg: #f4ecd8;
+  --panel: #faf3e0;
+  --panel-2: #ece2c8;
+  --border: #d8cba8;
+  --text: #3a3226;
+  --dim: #8a7d63;
+  --accent: #b5894a;
+  --green: #5c8a3a;
+  --yellow: #c8941f;
+  --red: #c0392b;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* 纸白：更亮的米白 */
+:root[data-theme="paper"] {
+  --bg: #fbf8f1;
+  --panel: #ffffff;
+  --panel-2: #f0ece2;
+  --border: #e2dccb;
+  --text: #2e2a24;
+  --dim: #908a7c;
+  --accent: #b5894a;
+  --green: #5c8a3a;
+  --yellow: #c8941f;
+  --red: #c0392b;
+}
+
+/* 暗夜：原深色配色 */
+:root[data-theme="dark"] {
   --bg: #1a1b1e;
   --panel: #25262b;
   --panel-2: #2c2e33;
@@ -9,7 +40,20 @@
   --green: #51cf66;
   --yellow: #ffd43b;
   --red: #ff6b6b;
-  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* 夜读：深褐护眼，暖色低亮 */
+:root[data-theme="sepia-dark"] {
+  --bg: #2b2620;
+  --panel: #342e26;
+  --panel-2: #3d362b;
+  --border: #4d4537;
+  --text: #e4d8c2;
+  --dim: #a89a80;
+  --accent: #d2a866;
+  --green: #8fbf6a;
+  --yellow: #e0b84e;
+  --red: #e07a6a;
 }
 
 * { box-sizing: border-box; }

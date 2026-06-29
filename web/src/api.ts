@@ -127,10 +127,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  extendOutline: (slug: string, count: number) =>
+  extendOutline: (slug: string, count: number, authorNote = "") =>
     req<TaskRef>(`/api/books/${slug}/extend-outline`, {
       method: "POST",
-      body: JSON.stringify({ count }),
+      body: JSON.stringify({ count, author_note: authorNote }),
     }),
   write: (slug: string, body: any) =>
     req<TaskRef>(`/api/books/${slug}/write`, {

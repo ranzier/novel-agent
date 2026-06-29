@@ -172,7 +172,7 @@ _WINDOW_PROMPT = """这是一本中文网络小说，现在要规划【接下来
 【已知角色】
 {characters}
 
-请规划从第 {start_index} 章开始、连续 {count} 章的细纲。章节序号从 {start_index} 连续编号。
+{author_note}请规划从第 {start_index} 章开始、连续 {count} 章的细纲。章节序号从 {start_index} 连续编号。
 这批章节会作为新的一卷，请同时为这一卷起个卷名、概括其弧光。
 只输出如下结构的 JSON：
 {{
@@ -193,9 +193,22 @@ _WINDOW_PROMPT = """这是一本中文网络小说，现在要规划【接下来
 
 要求：
 - 紧承"当前进度与世界状态"，与已发生的剧情自然衔接，不与既成事实矛盾。
+- 若给出了【作者意图】，须作为最高优先级落实到这几章的走向中，在不违背既定设定与世界状态的前提下，优先按作者的想法编排情节、分配章节。
 - 主角境界从当前状态出发稳步推进，不跳级、不倒退。
 - 章节层层推进、每隔几章一个爽点、章末都要有钩子。
 - 出场角色尽量用【已知角色】里的名字；已死亡角色不可再出场。"""
+
+
+def _author_intent_block(note: str) -> str:
+    """作者对接下来几章剧情走向的意图，最高优先级注入。空则不注入。"""
+    note = (note or "").strip()
+    if not note:
+        return ""
+    return (
+        "【作者意图（最高优先级，须优先落实到本批章节的剧情走向中，"
+        "可在不违背既定设定与世界状态的前提下灵活编排以贴合作者想法）】\n"
+        f"{note}\n\n"
+    )
 
 
 def _volumes_brief(outline: Outline) -> str:
@@ -247,6 +260,7 @@ def generate_chapter_window(
     character_names: list[str],
     state: WorldState | None = None,
     recap_summaries: list[ChapterSummary] | None = None,
+    author_note: str = "",
 ) -> dict:
     """滑动窗口：生成从 start_index 起连续 count 章的细纲。
 
@@ -255,6 +269,7 @@ def generate_chapter_window(
     由调用方作为「新的一卷」并入大纲。
 
     recap_summaries：最近 N 章摘要（由调用方按配置切好传入），渲染为前情块。
+    author_note：作者对接下来几章剧情走向的意图，最高优先级注入。
     """
     tiers = " → ".join(t.name for t in bible.power_system.tiers) or "（未定义）"
     last_written = (state.last_chapter if state else 0)
@@ -268,6 +283,7 @@ def generate_chapter_window(
         progress=_progress_brief(state or WorldState(), last_written),
         recap=_recap_brief(recap_summaries or []),
         characters="、".join(character_names) or "（暂无）",
+        author_note=_author_intent_block(author_note),
         count=count,
         start_index=start_index,
     )

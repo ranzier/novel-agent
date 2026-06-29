@@ -21,10 +21,12 @@ class InitBody(BaseModel):
 class OutlineBody(BaseModel):
     window: int = 10
     skeleton_only: bool = False
+    author_note: str = ""
 
 
 class ExtendOutlineBody(BaseModel):
     count: int = 10
+    author_note: str = ""
 
 
 class WriteBody(BaseModel):
@@ -448,6 +450,7 @@ def create_app() -> FastAPI:
                 win = outline_planner.generate_chapter_window(
                     gw, bible, outline, start_index=1, count=body.window,
                     character_names=char_names, state=p.load_state(),
+                    author_note=body.author_note,
                 )
                 added = outline.add_window(
                     win["chapters"], title=win["title"], arc=win["arc"]
@@ -488,7 +491,7 @@ def create_app() -> FastAPI:
             win = outline_planner.generate_chapter_window(
                 gw, bible, outline, start_index=start_index, count=body.count,
                 character_names=char_names, state=p.load_state(),
-                recap_summaries=recap,
+                recap_summaries=recap, author_note=body.author_note,
             )
             added = outline.add_window(
                 win["chapters"], title=win["title"], arc=win["arc"]

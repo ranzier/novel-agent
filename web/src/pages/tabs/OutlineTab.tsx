@@ -18,6 +18,7 @@ export function OutlineTab({
     retry: false,
   });
   const [firstWindow, setFirstWindow] = useState(10);
+  const [firstNote, setFirstNote] = useState("");
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
@@ -28,15 +29,18 @@ export function OutlineTab({
   }, [data]);
 
   const gen = async () => {
-    const { task_id } = await api.genOutline(slug, { window: firstWindow });
+    const { task_id } = await api.genOutline(slug, {
+      window: firstWindow,
+      author_note: firstNote.trim(),
+    });
     onTask(task_id, "生成大纲");
   };
 
-  const extendOutline = async (count: number) => {
+  const extendOutline = async (count: number, authorNote: string) => {
     setShowExtend(false);
     setMsg("");
     try {
-      const { task_id } = await api.extendOutline(slug, count);
+      const { task_id } = await api.extendOutline(slug, count, authorNote);
       onTask(task_id, `续写大纲（${count} 章）`);
     } catch (e: any) {
       setMsg("续写大纲失败：" + e.message);
@@ -64,7 +68,7 @@ export function OutlineTab({
   // 大纲未生成
   if (error) {
     return (
-      <div className="card" style={{ maxWidth: 420 }}>
+      <div className="card" style={{ maxWidth: 480 }}>
         <h3 style={{ marginTop: 0 }}>还没有大纲</h3>
         <div className="row" style={{ margin: "12px 0" }}>
           <label className="muted">首次生成章数</label>
@@ -78,9 +82,26 @@ export function OutlineTab({
             }
           />
         </div>
+        <label className="muted">
+          你对开头这几章的剧情设想（可选）
+        </label>
+        <textarea
+          value={firstNote}
+          onChange={(e) => setFirstNote(e.target.value)}
+          rows={6}
+          placeholder="例如：开篇让主角魂穿后先在军屯站稳脚跟，靠现代农技解决一桩减产危机立威；前几章铺垫冯恪以章程刁难、阿筠部族遭瘴疫，高潮放在主角识破一桩屯田舞弊。"
+          style={{
+            width: "100%",
+            margin: "6px 0 12px",
+            resize: "vertical",
+            fontFamily: "inherit",
+            lineHeight: 1.6,
+          }}
+        />
         <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
           先生成全书骨架（主线与各卷弧光，卷数由 AI 按故事体量自定），
-          再细化开头这 {firstWindow} 章的章节细纲。后续可在大纲页「续写大纲」。
+          再细化开头这 {firstWindow} 章的章节细纲。填写设想后，AI 会以你的意图为最高优先级编排这几章
+          （骨架仍由设定决定，且会遵守既定设定）。后续可在大纲页「续写大纲」。
         </div>
         <button className="primary" onClick={gen}>
           生成大纲

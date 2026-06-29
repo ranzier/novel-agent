@@ -43,6 +43,14 @@ DEFAULT_SUMMARY_COUNT = 30        # 注入最多几条早期章节摘要
 DEFAULT_RECALL_TOP_K = 4          # 向量召回片段条数
 DEFAULT_RECALL_MIN_SCORE = 0.3    # 向量召回相似度阈值
 DEFAULT_OUTLINE_RECAP = 10        # 续写大纲时注入最近 N 章摘要作为前情
+DEFAULT_INJECT_NEXT_OUTLINE = True  # 写本章时注入下一章大纲作为"禁止提前写"的边界
+
+
+def _env_bool(key: str, default: bool) -> bool:
+    raw = os.environ.get(key, "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "on")
 
 
 def _env_int(key: str, default: int) -> int:
@@ -81,6 +89,7 @@ class Config:
     recall_top_k: int
     recall_min_score: float
     outline_recap: int
+    inject_next_outline: bool
 
     @classmethod
     def load(cls) -> "Config":
@@ -123,6 +132,9 @@ class Config:
             ),
             outline_recap=_env_int(
                 "CTX_OUTLINE_RECAP", DEFAULT_OUTLINE_RECAP
+            ),
+            inject_next_outline=_env_bool(
+                "CTX_INJECT_NEXT_OUTLINE", DEFAULT_INJECT_NEXT_OUTLINE
             ),
         )
 

@@ -20,6 +20,8 @@ class ChapterSummary:
     events: list[str] = field(default_factory=list)   # 关键事件点
     characters: list[str] = field(default_factory=list)  # 实际出场角色
     foreshadowing: list[str] = field(default_factory=list)  # 本章埋下的伏笔
+    scene_ending: str = ""          # 本章结尾的瞬时场景态：谁在场/各自即时状态/悬而未决的动作
+                                    # 供下一章衔接，解决"上一章重伤/在场，下一章却凭空消失或生龙活虎"
 
     @classmethod
     def from_dict(cls, d: dict) -> "ChapterSummary":
@@ -31,6 +33,7 @@ class ChapterSummary:
             events=list(d.get("events", [])),
             characters=list(d.get("characters", [])),
             foreshadowing=list(d.get("foreshadowing", [])),
+            scene_ending=d.get("scene_ending", ""),
         )
 
 

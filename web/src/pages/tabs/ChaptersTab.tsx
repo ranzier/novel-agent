@@ -241,7 +241,7 @@ export function ChaptersTab({
                   title="重新生成本章正文（覆盖现有内容，并更新摘要与世界状态）"
                   style={{ fontSize: 12, padding: "3px 10px", marginLeft: 8 }}
                 >
-                  ✍ 重写本章
+                  ✍ 重写最新章
                 </button>
               )}
               <div className="row" style={{ marginLeft: 24 }}>

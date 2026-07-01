@@ -7,6 +7,7 @@ import { DeleteBookModal } from "../components/DeleteBookModal";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { BibleTab } from "./tabs/BibleTab";
 import { CharactersTab } from "./tabs/CharactersTab";
+import { StyleTab } from "./tabs/StyleTab";
 import { OutlineTab } from "./tabs/OutlineTab";
 import { ChaptersTab } from "./tabs/ChaptersTab";
 import { ReviewsTab } from "./tabs/ReviewsTab";
@@ -14,6 +15,7 @@ import { ReviewsTab } from "./tabs/ReviewsTab";
 const TABS = [
   { key: "overview", label: "概览" },
   { key: "bible", label: "设定圣经" },
+  { key: "style", label: "写作风格" },
   { key: "characters", label: "角色库" },
   { key: "outline", label: "大纲" },
   { key: "chapters", label: "章节" },
@@ -71,6 +73,7 @@ export function Workspace() {
       <div className="content">
         {tab === "overview" && <OverviewTab slug={slug} onTask={startTask} />}
         {tab === "bible" && <BibleTab slug={slug} />}
+        {tab === "style" && <StyleTab slug={slug} />}
         {tab === "characters" && <CharactersTab slug={slug} />}
         {tab === "outline" && <OutlineTab slug={slug} onTask={startTask} />}
         {tab === "chapters" && <ChaptersTab slug={slug} onTask={startTask} />}

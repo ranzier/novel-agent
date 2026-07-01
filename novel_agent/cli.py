@@ -21,7 +21,7 @@ from .engine import write_one_chapter
 from .generate import ideation, outline_planner
 from .generate import chapter_writer
 from .llm import LLMError, LLMGateway
-from .project import Project
+from .project import Project, DEFAULT_STYLE
 from .reporting import ConsoleReporter
 
 app = typer.Typer(
@@ -118,6 +118,7 @@ def init(
     project = Project.create(bible.title or "untitled")
     project.save_bible(bible)
     project.save_characters(characters)
+    project.save_style(DEFAULT_STYLE)
 
     console.print(f"\n[green]✓[/] 立项完成：[bold]{bible.title}[/]（{bible.genre}）")
     console.print(f"  一句话：{bible.one_line}")

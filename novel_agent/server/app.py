@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ..config import BOOKS_DIR, Config
-from ..project import Project
+from ..project import Project, DEFAULT_STYLE
 from ..storage import _to_plain
 from .tasks import TaskManager, sse_format
 
@@ -248,6 +248,12 @@ def create_app() -> FastAPI:
         p = _open_project(slug)
         return _resp(p.load_characters())
 
+    # ---- GET /api/books/{slug}/style ----
+    @app.get("/api/books/{slug}/style")
+    def get_style(slug: str):
+        p = _open_project(slug)
+        return _resp(p.load_style())
+
     # ---- GET /api/books/{slug}/outline ----
     @app.get("/api/books/{slug}/outline")
     def get_outline(slug: str):
@@ -343,6 +349,12 @@ def create_app() -> FastAPI:
         p.save_characters(CharacterBook.from_dict(payload))
         return {"ok": True}
 
+    @app.put("/api/books/{slug}/style")
+    async def save_style(slug: str, payload: dict):
+        p = _open_project(slug)
+        p.save_style(payload)
+        return {"ok": True}
+
     @app.put("/api/books/{slug}/outline")
     async def save_outline(slug: str, payload: dict):
         from ..generate.outline_models import Outline
@@ -421,6 +433,7 @@ def create_app() -> FastAPI:
             project = Project.create(bible.title, BOOKS_DIR)
             project.save_bible(bible)
             project.save_characters(characters)
+            project.save_style(DEFAULT_STYLE)
             rep.done(
                 f"立项完成：《{bible.title}》",
                 slug=project.slug, usage=gw.usage.as_dict(),

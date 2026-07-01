@@ -16,6 +16,19 @@ from .memory.state_models import ChapterSummary, WorldState
 from .storage import read_json, write_json, write_text
 
 
+# 新建书时写入的默认写作风格模板：自由结构，值为通用建议，供用户按书改写。
+DEFAULT_STYLE: dict = {
+    "整体基调": "",
+    "文笔风格": "句子简洁明快，多用短句制造节奏，少堆砌辞藻",
+    "叙事节奏": "紧扣情节推进，避免大段与主线无关的铺陈",
+    "对话风格": "口语自然，符合人设，避免书面腔",
+    "描写侧重": ["关键动作与画面感", "人物即时情绪"],
+    "禁忌": ["反复使用同一比喻", "无意义的长段心理独白"],
+    "建议技巧": ["用细节对比体现实力差距", "章末留钩子"],
+    "备注": "",
+}
+
+
 def slugify(name: str) -> str:
     """把书名转成安全的目录名；中文保留。"""
     s = name.strip().replace(" ", "_")
@@ -89,6 +102,10 @@ class Project:
         return self.root / "state.json"
 
     @property
+    def style_path(self) -> Path:
+        return self.root / "style.json"
+
+    @property
     def summaries_path(self) -> Path:
         return self.summaries_dir / "chapters.json"
 
@@ -133,6 +150,20 @@ class Project:
 
     def save_characters(self, book: CharacterBook) -> None:
         write_json(self.characters_path, book)
+
+    # ---- 写作风格（自由结构 JSON）----
+    def has_style(self) -> bool:
+        return self.style_path.exists()
+
+    def load_style(self) -> dict:
+        """读取本书写作风格约束/建议。文件不存在返回空 dict（向后兼容旧书）。"""
+        if not self.style_path.exists():
+            return {}
+        data = read_json(self.style_path)
+        return data if isinstance(data, dict) else {}
+
+    def save_style(self, style: dict) -> None:
+        write_json(self.style_path, style)
 
     # ---- 大纲 ----
     def has_outline(self) -> bool:

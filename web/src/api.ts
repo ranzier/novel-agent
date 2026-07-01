@@ -86,6 +86,7 @@ export const api = {
     req<{ ok: boolean }>(`/api/books/${slug}`, { method: "DELETE" }),
   bible: (slug: string) => req<any>(`/api/books/${slug}/bible`),
   characters: (slug: string) => req<any>(`/api/books/${slug}/characters`),
+  style: (slug: string) => req<any>(`/api/books/${slug}/style`),
   outline: (slug: string) => req<any>(`/api/books/${slug}/outline`),
   chapters: (slug: string) => req<ChapterMeta[]>(`/api/books/${slug}/chapters`),
   chapter: (slug: string, n: number) =>
@@ -100,6 +101,11 @@ export const api = {
     req(`/api/books/${slug}/bible`, { method: "PUT", body: JSON.stringify(body) }),
   saveCharacters: (slug: string, body: any) =>
     req(`/api/books/${slug}/characters`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  saveStyle: (slug: string, body: any) =>
+    req(`/api/books/${slug}/style`, {
       method: "PUT",
       body: JSON.stringify(body),
     }),

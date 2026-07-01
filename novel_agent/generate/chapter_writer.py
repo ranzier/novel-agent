@@ -35,7 +35,7 @@ _PROMPT = """【设定摘要】
 力量体系：{tiers}
 世界规则：{rules}
 
-【本卷】第 {vol_index} 卷《{vol_title}》
+{writing_style}【本卷】第 {vol_index} 卷《{vol_title}》
 弧光：{arc}；境界：{start_tier} → {end_tier}
 
 【相关角色】
@@ -68,6 +68,48 @@ def _author_note_block(note: str) -> str:
         "【作者本章要求（高优先级，须优先满足，可在不违背既定设定/世界状态的"
         "前提下灵活调整细纲情节以贴合作者意图）】\n"
         f"{note}\n\n"
+    )
+
+
+def _render_style(value, indent: int = 0) -> list[str]:
+    """把任意结构（dict / list / 标量）递归渲染成可读行。"""
+    pad = "  " * indent
+    lines: list[str] = []
+    if isinstance(value, dict):
+        for k, v in value.items():
+            if v is None or v == "" or v == [] or v == {}:
+                continue  # 跳过空项，保持注入精简
+            if isinstance(v, (dict, list)):
+                lines.append(f"{pad}{k}：")
+                lines.extend(_render_style(v, indent + 1))
+            else:
+                lines.append(f"{pad}{k}：{v}")
+    elif isinstance(value, list):
+        scalars = [str(x) for x in value if not isinstance(x, (dict, list))]
+        complex_items = [x for x in value if isinstance(x, (dict, list))]
+        if scalars:
+            lines.append(f"{pad}· " + "、".join(scalars))
+        for item in complex_items:
+            lines.extend(_render_style(item, indent))
+    else:
+        lines.append(f"{pad}{value}")
+    return lines
+
+
+def _writing_style_block(style: dict) -> str:
+    """本书写作风格约束/建议，全书级高优先级注入。空则不注入。
+
+    结构自由（用户可任意增删字段），递归渲染成可读文本块。
+    """
+    if not style or not isinstance(style, dict):
+        return ""
+    lines = _render_style(style)
+    if not lines:
+        return ""
+    body = "\n".join(lines)
+    return (
+        "【写作风格（须贯穿全文遵守；在不违背既定设定与世界状态的前提下优先满足）】\n"
+        f"{body}\n\n"
     )
 
 
@@ -156,6 +198,7 @@ def write_chapter(
     bible: Bible = project.load_bible()
     characters = project.load_characters()
     outline = project.load_outline()
+    style = project.load_style()
 
     ch = outline.chapter(index)
     if ch is None:
@@ -199,6 +242,7 @@ def write_chapter(
         golden_finger=bible.golden_finger,
         tiers=tiers,
         rules="；".join(bible.rules) or "（无）",
+        writing_style=_writing_style_block(style),
         vol_index=vol.index if vol else 0,
         vol_title=vol.title if vol else "",
         arc=vol.arc if vol else "",

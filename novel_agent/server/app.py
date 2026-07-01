@@ -254,6 +254,12 @@ def create_app() -> FastAPI:
         p = _open_project(slug)
         return _resp(p.load_style())
 
+    # ---- GET /api/books/{slug}/notes ----
+    @app.get("/api/books/{slug}/notes")
+    def get_notes(slug: str):
+        p = _open_project(slug)
+        return {"text": p.load_notes()}
+
     # ---- GET /api/books/{slug}/outline ----
     @app.get("/api/books/{slug}/outline")
     def get_outline(slug: str):
@@ -355,6 +361,12 @@ def create_app() -> FastAPI:
         p.save_style(payload)
         return {"ok": True}
 
+    @app.put("/api/books/{slug}/notes")
+    async def save_notes(slug: str, payload: dict):
+        p = _open_project(slug)
+        p.save_notes(payload.get("text", ""))
+        return {"ok": True}
+
     @app.put("/api/books/{slug}/outline")
     async def save_outline(slug: str, payload: dict):
         from ..generate.outline_models import Outline
@@ -371,6 +383,38 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail="正文不能为空")
         p.write_chapter(n, text)
         return {"ok": True, "chars": len(text)}
+
+    @app.put("/api/books/{slug}/state")
+    async def save_state(slug: str, payload: dict):
+        from ..memory.state_models import WorldState
+
+        p = _open_project(slug)
+        p.save_state(WorldState.from_dict(payload))
+        return {"ok": True}
+
+    # ---- DELETE /api/books/{slug}/chapters/{n}  （仅限最新章）----
+    @app.delete("/api/books/{slug}/chapters/{n}")
+    def delete_chapter(slug: str, n: int):
+        p = _open_project(slug)
+        _guard_busy(slug)
+        written = set(p.existing_chapter_indices())
+        if n not in written:
+            raise HTTPException(status_code=404, detail=f"第 {n} 章不存在")
+        if n != max(written):
+            raise HTTPException(
+                status_code=400, detail="只能删除最新一章，以免章节序号断层"
+            )
+        # 清理正文 / 摘要 / 校验 / 世界状态
+        p.delete_chapter(n)
+        # 清理向量库片段（缺 embedding key 时静默跳过）
+        try:
+            from ..memory import Embedder
+
+            store = p.vector_store(Embedder(Config.load()).dim)
+            store.remove_chapter(n)
+        except Exception:  # noqa: BLE001 - 向量清理失败不应阻断删除
+            pass
+        return {"ok": True}
 
     @app.post("/api/books/{slug}/chapters/{n}/resummarize")
     def resummarize_chapter(slug: str, n: int):

@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 
 export function ReviewsTab({ slug }: { slug: string }) {
+  const qc = useQueryClient();
   const { data: reviews } = useQuery({
     queryKey: ["reviews", slug],
     queryFn: () => api.reviews(slug),
@@ -15,6 +17,38 @@ export function ReviewsTab({ slug }: { slug: string }) {
     queryFn: () => api.overview(slug),
   });
   const progLabel = ov?.progression_label || "状态";
+
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    if (state && editing) setText(JSON.stringify(state, null, 2));
+  }, [state, editing]);
+
+  const startEdit = () => {
+    setText(JSON.stringify(state ?? {}, null, 2));
+    setMsg("");
+    setEditing(true);
+  };
+  const save = async () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      setMsg("JSON 格式错误，请检查");
+      return;
+    }
+    try {
+      await api.saveState(slug, parsed);
+      await qc.invalidateQueries({ queryKey: ["state", slug] });
+      await qc.invalidateQueries({ queryKey: ["overview", slug] });
+      setMsg("已保存 ✓");
+      setEditing(false);
+    } catch (e: any) {
+      setMsg("保存失败：" + e.message);
+    }
+  };
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
@@ -62,34 +96,76 @@ export function ReviewsTab({ slug }: { slug: string }) {
       </div>
 
       <div>
-        <h2 style={{ marginTop: 0 }}>世界状态（记忆）</h2>
-        <div className="card">
-          <p>
-            <span className="muted">主角{progLabel}：</span>
-            {state?.protagonist_tier || "—"}
-          </p>
-          <p>
-            <span className="muted">主角位置：</span>
-            {state?.protagonist_location || "—"}
-          </p>
-          <div className="muted" style={{ marginTop: 10 }}>
-            未回收伏笔
+        <div className="spread" style={{ marginBottom: 8 }}>
+          <h2 style={{ margin: 0 }}>世界状态（记忆）</h2>
+          <div className="row">
+            {msg && <span className="muted">{msg}</span>}
+            {editing ? (
+              <>
+                <button onClick={() => { setEditing(false); setMsg(""); }}>
+                  取消
+                </button>
+                <button className="primary" onClick={save}>
+                  保存
+                </button>
+              </>
+            ) : (
+              <button onClick={startEdit}>编辑</button>
+            )}
           </div>
-          <ul>
-            {(state?.foreshadowing ?? []).map((f: any, i: number) => (
-              <li key={i}>{typeof f === "string" ? f : f.content ?? ""}</li>
-            ))}
-          </ul>
-          <div className="muted">角色状态</div>
-          <ul>
-            {(state?.characters ?? []).map((c: any, i: number) => (
-              <li key={i}>
-                {c.name} · {c.power_tier || "—"}{" "}
-                {c.status === "死亡" && <span className="tag err">死亡</span>}
-              </li>
-            ))}
-          </ul>
         </div>
+
+        {editing ? (
+          <>
+            <p
+              className="muted"
+              style={{ marginTop: 0, marginBottom: 8, fontSize: 13 }}
+            >
+              直接编辑完整世界状态 JSON。这是写作时注入的“硬事实”记忆，改动会影响后续章节的连贯性，请谨慎修改。
+            </p>
+            <textarea
+              rows={28}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                setMsg("");
+              }}
+              style={{ fontFamily: "monospace", fontSize: 13 }}
+            />
+          </>
+        ) : (
+          <div className="card">
+            <p>
+              <span className="muted">时间：</span>
+              {state?.timeline || "—"}
+            </p>
+            <p>
+              <span className="muted">主角{progLabel}：</span>
+              {state?.protagonist_tier || "—"}
+            </p>
+            <p>
+              <span className="muted">主角位置：</span>
+              {state?.protagonist_location || "—"}
+            </p>
+            <div className="muted" style={{ marginTop: 10 }}>
+              未回收伏笔
+            </div>
+            <ul>
+              {(state?.foreshadowing ?? []).map((f: any, i: number) => (
+                <li key={i}>{typeof f === "string" ? f : f.content ?? ""}</li>
+              ))}
+            </ul>
+            <div className="muted">角色状态</div>
+            <ul>
+              {(state?.characters ?? []).map((c: any, i: number) => (
+                <li key={i}>
+                  {c.name} · {c.power_tier || "—"}{" "}
+                  {c.status === "死亡" && <span className="tag err">死亡</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

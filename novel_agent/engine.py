@@ -113,6 +113,7 @@ def write_one_chapter(
                 summary, new_state = consolidate(
                     gateway, title=bible.title, index=chapter,
                     chapter_title=title, body=text, prev_state=prev_state,
+                    progression_label=bible.progression_label,
                 )
                 # 把抽取出的摘要发出来，便于前端展开查看
                 if summary is not None and summary.summary:
@@ -162,10 +163,11 @@ def write_one_chapter(
             rep.warn(f"大纲摘要同步失败（已跳过）：{e}")
         if update_world_state:
             tier = new_state.protagonist_tier or "—"
+            tier_label = bible.progression_label or "状态"
             fore = len(new_state.foreshadowing)
             dead = [c.name for c in new_state.characters if c.status == "死亡"]
             rep.info(
-                f"记忆已更新：主角境界 {tier}；未回收伏笔 {fore} 条"
+                f"记忆已更新：主角{tier_label} {tier}；未回收伏笔 {fore} 条"
                 + (f"；已故 {'、'.join(dead)}" if dead else "")
             )
 

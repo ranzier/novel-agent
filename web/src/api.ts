@@ -87,6 +87,7 @@ export const api = {
   bible: (slug: string) => req<any>(`/api/books/${slug}/bible`),
   characters: (slug: string) => req<any>(`/api/books/${slug}/characters`),
   style: (slug: string) => req<any>(`/api/books/${slug}/style`),
+  notes: (slug: string) => req<{ text: string }>(`/api/books/${slug}/notes`),
   outline: (slug: string) => req<any>(`/api/books/${slug}/outline`),
   chapters: (slug: string) => req<ChapterMeta[]>(`/api/books/${slug}/chapters`),
   chapter: (slug: string, n: number) =>
@@ -109,6 +110,16 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+  saveNotes: (slug: string, text: string) =>
+    req(`/api/books/${slug}/notes`, {
+      method: "PUT",
+      body: JSON.stringify({ text }),
+    }),
+  saveState: (slug: string, body: any) =>
+    req(`/api/books/${slug}/state`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
   saveOutline: (slug: string, body: any) =>
     req(`/api/books/${slug}/outline`, {
       method: "PUT",
@@ -118,6 +129,10 @@ export const api = {
     req(`/api/books/${slug}/chapters/${n}`, {
       method: "PUT",
       body: JSON.stringify({ text }),
+    }),
+  deleteChapter: (slug: string, n: number) =>
+    req<{ ok: boolean }>(`/api/books/${slug}/chapters/${n}`, {
+      method: "DELETE",
     }),
   resummarize: (slug: string, n: number) =>
     req<{ ok: boolean; summary: string; outline_updated: boolean }>(

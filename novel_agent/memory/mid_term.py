@@ -16,18 +16,20 @@ def mid_term_block(
     before_index: int,
     skip_recent: int = 3,
     max_summaries: int = 30,
+    progression_label: str = "",
 ) -> str:
     """组装中期记忆文本块。
 
     before_index: 即将写的章节号
     skip_recent: 最近这些章已由短期记忆给原文，这里不再重复其摘要
     max_summaries: 最多纳入多少条早期摘要（防止过长）
+    progression_label: 进阶体系称谓（玄幻=境界、历史=官职/权势…），用于状态显示
     """
     parts: list[str] = []
 
     # 1) 世界状态快照（硬事实）
     if state and state.last_chapter > 0:
-        parts.append(_format_state(state))
+        parts.append(_format_state(state, progression_label))
 
     # 2) 早期章节摘要（跳过最近 skip_recent 章）
     cutoff = before_index - skip_recent
@@ -43,12 +45,13 @@ def mid_term_block(
     return "\n\n".join(parts)
 
 
-def _format_state(state: WorldState) -> str:
+def _format_state(state: WorldState, progression_label: str = "") -> str:
+    tier_label = (progression_label or "").strip() or "状态"
     lines = [f"【当前世界状态】（截至第 {state.last_chapter} 章）"]
     if state.timeline:
         lines.append(f"时间：{state.timeline}")
     if state.protagonist_tier:
-        lines.append(f"主角境界：{state.protagonist_tier}")
+        lines.append(f"主角{tier_label}：{state.protagonist_tier}")
     if state.protagonist_location:
         lines.append(f"主角位置：{state.protagonist_location}")
     if state.items:

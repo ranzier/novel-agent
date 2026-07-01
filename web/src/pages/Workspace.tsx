@@ -11,6 +11,7 @@ import { StyleTab } from "./tabs/StyleTab";
 import { OutlineTab } from "./tabs/OutlineTab";
 import { ChaptersTab } from "./tabs/ChaptersTab";
 import { ReviewsTab } from "./tabs/ReviewsTab";
+import { NotesTab } from "./tabs/NotesTab";
 
 const TABS = [
   { key: "overview", label: "概览" },
@@ -20,6 +21,7 @@ const TABS = [
   { key: "outline", label: "大纲" },
   { key: "chapters", label: "章节" },
   { key: "reviews", label: "校验/记忆" },
+  { key: "notes", label: "作者笔记" },
 ];
 
 export interface RunningTask {
@@ -78,6 +80,7 @@ export function Workspace() {
         {tab === "outline" && <OutlineTab slug={slug} onTask={startTask} />}
         {tab === "chapters" && <ChaptersTab slug={slug} onTask={startTask} />}
         {tab === "reviews" && <ReviewsTab slug={slug} />}
+        {tab === "notes" && <NotesTab slug={slug} />}
       </div>
 
       {task && (

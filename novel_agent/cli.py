@@ -541,7 +541,10 @@ def status(
     state = project.load_state()
     if state.last_chapter > 0:
         console.print(f"\n  [bold]世界状态[/]（截至第 {state.last_chapter} 章）")
-        console.print(f"    主角境界：{state.protagonist_tier or '—'}")
+        console.print(
+            f"    主角{bible.progression_label or '状态'}："
+            f"{state.protagonist_tier or '—'}"
+        )
         console.print(f"    主角位置：{state.protagonist_location or '—'}")
         dead = [c.name for c in state.characters if c.status == "死亡"]
         if dead:

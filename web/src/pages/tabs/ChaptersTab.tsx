@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 import { BatchModal } from "../../components/BatchModal";
 import { WriteChapterModal } from "../../components/WriteChapterModal";
@@ -14,6 +14,7 @@ export function ChaptersTab({
   slug: string;
   onTask: (id: string, title: string) => void;
 }) {
+  const qc = useQueryClient();
   const { data: chapters } = useQuery({
     queryKey: ["chapters", slug],
     queryFn: () => api.chapters(slug),
@@ -37,6 +38,8 @@ export function ChaptersTab({
   const [resumming, setResumming] = useState(false);
   const [showResumConfirm, setShowResumConfirm] = useState(false);
   const [showRewrite, setShowRewrite] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
 
   const { data: ch } = useQuery({
@@ -137,6 +140,21 @@ export function ChaptersTab({
     setShowRewrite(false);
     const { task_id } = await api.rewrite(slug, sel, opts);
     onTask(task_id, `重写第 ${sel} 章`);
+  };
+  const doDelete = async () => {
+    if (sel === null) return;
+    setDeleting(true);
+    try {
+      await api.deleteChapter(slug, sel);
+      setShowDeleteConfirm(false);
+      setSel(null);
+      qc.invalidateQueries({ queryKey: ["chapters", slug] });
+      qc.invalidateQueries({ queryKey: ["overview", slug] });
+    } catch (e: any) {
+      setMsg("删除失败：" + e.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -244,6 +262,20 @@ export function ChaptersTab({
                   ✍ 重写最新章
                 </button>
               )}
+              {!editing && sel === writtenMax && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  title="删除本章（仅限最新一章，不可撤销）"
+                  style={{
+                    fontSize: 12,
+                    padding: "3px 10px",
+                    marginLeft: 8,
+                    color: "var(--red)",
+                  }}
+                >
+                  🗑 删除本章
+                </button>
+              )}
               <div className="row" style={{ marginLeft: 24 }}>
                 {msg && <span className="muted">{msg}</span>}
                 {editing ? (
@@ -307,6 +339,17 @@ export function ChaptersTab({
           confirmText="开始重写"
           onClose={() => setShowRewrite(false)}
           onConfirm={rewrite}
+        />
+      )}
+      {showDeleteConfirm && (
+        <ConfirmModal
+          title={`删除第 ${sel} 章`}
+          message="将永久删除本章正文，以及其摘要、一致性校验记录和向量索引；世界状态会回退到上一章。仅能删除最新一章，此操作不可撤销。是否继续？"
+          confirmText="删除"
+          busy={deleting}
+          busyText="删除中…"
+          onConfirm={doDelete}
+          onClose={() => setShowDeleteConfirm(false)}
         />
       )}
     </div>

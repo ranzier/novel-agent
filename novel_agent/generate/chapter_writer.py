@@ -222,6 +222,7 @@ def write_chapter(
     mid_term = mid_term_block(
         summaries, state, before_index=index,
         skip_recent=recent_n, max_summaries=cfg.summary_count,
+        progression_label=bible.progression_label,
     )
 
     # 连续性摘要：上一章收尾场景态（瞬时在场/即时状态），高优先级衔接

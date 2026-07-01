@@ -106,6 +106,10 @@ class Project:
         return self.root / "style.json"
 
     @property
+    def notes_path(self) -> Path:
+        return self.root / "notes.md"
+
+    @property
     def summaries_path(self) -> Path:
         return self.summaries_dir / "chapters.json"
 
@@ -164,6 +168,16 @@ class Project:
 
     def save_style(self, style: dict) -> None:
         write_json(self.style_path, style)
+
+    # ---- 作者笔记（纯文本，不参与写作）----
+    def load_notes(self) -> str:
+        """读取作者笔记纯文本。文件不存在返回空串。"""
+        if not self.notes_path.exists():
+            return ""
+        return self.notes_path.read_text(encoding="utf-8")
+
+    def save_notes(self, text: str) -> None:
+        write_text(self.notes_path, text)
 
     # ---- 大纲 ----
     def has_outline(self) -> bool:
@@ -262,3 +276,32 @@ class Project:
             if m:
                 out.append(int(m.group(1)))
         return sorted(out)
+
+    def delete_chapter(self, index: int) -> None:
+        """删除某章正文，并清理与之绑定的记忆产物（摘要 / 校验 / 世界状态）。
+
+        向量库片段由调用方（需 Embedder 拿到 dim）另行清理，这里不依赖 embedding。
+        world state 是快照而非逐章历史：仅把 last_chapter 回退到剩余最大章号，
+        其它字段维持现状（重写该章时 consolidate 会基于 prev_state 重算）。
+        """
+        # 1) 正文
+        self.chapter_path(index).unlink(missing_ok=True)
+
+        # 2) 章节摘要
+        summaries = [s for s in self.load_summaries() if s.index != index]
+        self.save_summaries(summaries)
+
+        # 3) 校验记录
+        if self.reviews_path.exists():
+            kept = [
+                r for r in read_json(self.reviews_path)
+                if r.get("chapter") != index
+            ]
+            write_json(self.reviews_path, kept)
+
+        # 4) 世界状态快照：回退 last_chapter
+        state = self.load_state()
+        if state.last_chapter == index:
+            remaining = self.existing_chapter_indices()
+            state.last_chapter = max(remaining) if remaining else 0
+            self.save_state(state)

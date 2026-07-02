@@ -258,7 +258,7 @@ def create_app() -> FastAPI:
     @app.get("/api/books/{slug}/notes")
     def get_notes(slug: str):
         p = _open_project(slug)
-        return {"text": p.load_notes()}
+        return {"notes": p.load_notes()}
 
     # ---- GET /api/books/{slug}/outline ----
     @app.get("/api/books/{slug}/outline")
@@ -364,7 +364,10 @@ def create_app() -> FastAPI:
     @app.put("/api/books/{slug}/notes")
     async def save_notes(slug: str, payload: dict):
         p = _open_project(slug)
-        p.save_notes(payload.get("text", ""))
+        notes = payload.get("notes", [])
+        if not isinstance(notes, list):
+            raise HTTPException(status_code=400, detail="notes 必须是数组")
+        p.save_notes(notes)
         return {"ok": True}
 
     @app.put("/api/books/{slug}/outline")

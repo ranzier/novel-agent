@@ -26,6 +26,13 @@ export interface ChapterMeta {
   has_errors: boolean;
 }
 
+export interface NoteItem {
+  id: string;
+  title: string;
+  content: string;
+  updated_at: string;
+}
+
 export interface TaskRef {
   task_id: string;
   chapter?: number;
@@ -87,7 +94,8 @@ export const api = {
   bible: (slug: string) => req<any>(`/api/books/${slug}/bible`),
   characters: (slug: string) => req<any>(`/api/books/${slug}/characters`),
   style: (slug: string) => req<any>(`/api/books/${slug}/style`),
-  notes: (slug: string) => req<{ text: string }>(`/api/books/${slug}/notes`),
+  notes: (slug: string) =>
+    req<{ notes: NoteItem[] }>(`/api/books/${slug}/notes`),
   outline: (slug: string) => req<any>(`/api/books/${slug}/outline`),
   chapters: (slug: string) => req<ChapterMeta[]>(`/api/books/${slug}/chapters`),
   chapter: (slug: string, n: number) =>
@@ -110,10 +118,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
-  saveNotes: (slug: string, text: string) =>
+  saveNotes: (slug: string, notes: NoteItem[]) =>
     req(`/api/books/${slug}/notes`, {
       method: "PUT",
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ notes }),
     }),
   saveState: (slug: string, body: any) =>
     req(`/api/books/${slug}/state`, {

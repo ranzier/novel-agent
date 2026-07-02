@@ -59,6 +59,24 @@ export function CharactersTab({ slug }: { slug: string }) {
         </div>
       </div>
 
+      {!edit && (
+        <div
+          className="muted"
+          style={{
+            fontSize: 12,
+            padding: "8px 12px",
+            background: "var(--panel-2)",
+            borderRadius: 6,
+            marginBottom: 16,
+            lineHeight: 1.6,
+          }}
+        >
+          ℹ 反复出场的角色会被自动收录进角色库，但系统不会自动删除任何角色。
+          建议在必要时手动删除不再重要的非核心角色（点「编辑」删掉对应条目后保存），
+          以免角色库越积越大、稀释写作时注入的角色信息。
+        </div>
+      )}
+
       {edit ? (
         <textarea
           rows={28}

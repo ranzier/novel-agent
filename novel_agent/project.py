@@ -107,6 +107,10 @@ class Project:
 
     @property
     def notes_path(self) -> Path:
+        return self.root / "notes.json"
+
+    @property
+    def legacy_notes_path(self) -> Path:
         return self.root / "notes.md"
 
     @property
@@ -169,15 +173,30 @@ class Project:
     def save_style(self, style: dict) -> None:
         write_json(self.style_path, style)
 
-    # ---- 作者笔记（纯文本，不参与写作）----
-    def load_notes(self) -> str:
-        """读取作者笔记纯文本。文件不存在返回空串。"""
-        if not self.notes_path.exists():
-            return ""
-        return self.notes_path.read_text(encoding="utf-8")
+    # ---- 作者笔记（多份，纯文本内容，不参与写作）----
+    def load_notes(self) -> list[dict]:
+        """读取作者笔记列表。每条为 {id, title, content, updated_at}。
 
-    def save_notes(self, text: str) -> None:
-        write_text(self.notes_path, text)
+        兼容迁移：若不存在 notes.json 但存在旧的 notes.md，则把旧单份笔记
+        转成列表里的一条返回（不落盘，首次保存时自然写成新格式）。
+        """
+        if self.notes_path.exists():
+            data = read_json(self.notes_path)
+            return data if isinstance(data, list) else []
+        # 迁移旧的单份 notes.md
+        if self.legacy_notes_path.exists():
+            old = self.legacy_notes_path.read_text(encoding="utf-8")
+            if old.strip():
+                return [{
+                    "id": "legacy",
+                    "title": "笔记",
+                    "content": old,
+                    "updated_at": "",
+                }]
+        return []
+
+    def save_notes(self, notes: list[dict]) -> None:
+        write_json(self.notes_path, notes)
 
     # ---- 大纲 ----
     def has_outline(self) -> bool:

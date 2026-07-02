@@ -103,6 +103,12 @@ export function OutlineTab({
           再细化开头这 {firstWindow} 章的章节细纲。填写设想后，AI 会以你的意图为最高优先级编排这几章
           （骨架仍由设定决定，且会遵守既定设定）。后续可在大纲页「续写大纲」。
         </div>
+        <div
+          className="muted"
+          style={{ fontSize: 12, marginBottom: 12, color: "var(--accent)" }}
+        >
+          💡 建议切换使用 Claude 模型
+        </div>
         <button className="primary" onClick={gen}>
           生成大纲
         </button>

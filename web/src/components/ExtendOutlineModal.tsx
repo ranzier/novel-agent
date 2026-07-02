@@ -50,10 +50,36 @@ export function ExtendOutlineModal({
             lineHeight: 1.6,
           }}
         />
-        <div className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
+        <div className="muted" style={{fontSize: 12, marginBottom: 8}}>
           基于当前剧情进度与世界状态生成接下来 {count} 章的细纲，作为新的一卷追加到末尾。
           填写设想后，AI 会以你的意图为最高优先级来编排这几章（仍会遵守既定设定与世界状态）。
         </div>
+        <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 14px",
+              marginBottom: 16,
+              borderRadius: 8,
+              background: "var(--accent-light, #eff6ff)",
+              border: "1.5px solid var(--accent, #3b82f6)",
+              fontSize: 13,
+              color: "var(--accent-dark, #1e40af)",
+              fontWeight: 500,
+            }}
+        >
+          <span style={{fontSize: 16}}>💡</span>
+          <span>
+              建议切换使用 <strong>Claude</strong> 模型续写大纲，效果更佳
+          </span>
+        </div>
+        {/*<div*/}
+        {/*  className="muted"*/}
+        {/*  style={{ fontSize: 12, marginBottom: 16, color: "var(--accent)" }}*/}
+        {/*>*/}
+        {/*  💡 建议切换使用 Claude 模型续写大纲*/}
+        {/*</div>*/}
 
         <div className="row" style={{ justifyContent: "flex-end" }}>
           <button onClick={onClose}>取消</button>

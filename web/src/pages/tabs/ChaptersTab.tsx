@@ -114,7 +114,6 @@ export function ChaptersTab({
     try {
       await api.saveChapter(slug, sel!, text);
       setMsg("已保存 ✓");
-      setEditing(false);
     } catch (e: any) {
       setMsg("保存失败：" + e.message);
     }
@@ -299,6 +298,7 @@ export function ChaptersTab({
                 rows={30}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
+                style={{ fontSize: 15, lineHeight: 1.9 }}
               />
             ) : (
               <div className="reader">{ch.text}</div>

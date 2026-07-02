@@ -552,11 +552,11 @@ def status(
         if state.open_threads:
             console.print(f"    进行中线索（{len(state.open_threads)}）：")
             for t in state.open_threads:
-                console.print(f"      · {t}")
+                console.print(f"      · {t.text}")
         if state.foreshadowing:
             console.print(f"    未回收伏笔（{len(state.foreshadowing)}）：")
             for f in state.foreshadowing:
-                console.print(f"      · {f}")
+                console.print(f"      · {f.text}")
 
 
 @app.command()

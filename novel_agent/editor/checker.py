@@ -192,7 +192,7 @@ def llm_checks(
         golden_finger=bible.golden_finger,
         prev_tier=prev_state.protagonist_tier or "（未知）",
         dead=dead,
-        foreshadowing="；".join(prev_state.foreshadowing) or "（无）",
+        foreshadowing="；".join(f.text for f in prev_state.foreshadowing) or "（无）",
         body=body,
     )
     try:

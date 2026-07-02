@@ -60,6 +60,24 @@ class CharacterState:
 
 
 @dataclass
+class Thread:
+    """一条伏笔或进行中的线索/冲突，带埋设章号以便追踪陈旧度。"""
+
+    text: str
+    planted_chapter: int = 0        # 埋设/开启于第几章（0 表示未知/历史遗留）
+
+    @classmethod
+    def from_any(cls, x) -> "Thread":
+        """兼容解析：纯字符串（旧数据）→ planted_chapter=0；dict → 取字段。"""
+        if isinstance(x, dict):
+            return cls(
+                text=str(x.get("text", "")),
+                planted_chapter=int(x.get("planted_chapter", 0) or 0),
+            )
+        return cls(text=str(x), planted_chapter=0)
+
+
+@dataclass
 class WorldState:
     """世界状态快照：截至最新已写章节的"当下"。
 
@@ -73,8 +91,8 @@ class WorldState:
     protagonist_location: str = "" # 主角当前位置
     characters: list[CharacterState] = field(default_factory=list)
     items: list[str] = field(default_factory=list)        # 主角持有的关键物品
-    open_threads: list[str] = field(default_factory=list)  # 进行中的冲突/任务
-    foreshadowing: list[str] = field(default_factory=list) # 未回收的伏笔
+    open_threads: list["Thread"] = field(default_factory=list)  # 进行中的冲突/任务
+    foreshadowing: list["Thread"] = field(default_factory=list) # 未回收的伏笔
 
     @classmethod
     def from_dict(cls, d: dict) -> "WorldState":
@@ -90,8 +108,8 @@ class WorldState:
                 if isinstance(c, dict)
             ],
             items=list(d.get("items", [])),
-            open_threads=list(d.get("open_threads", [])),
-            foreshadowing=list(d.get("foreshadowing", [])),
+            open_threads=[Thread.from_any(t) for t in d.get("open_threads", [])],
+            foreshadowing=[Thread.from_any(t) for t in d.get("foreshadowing", [])],
         )
 
     def character(self, name: str) -> CharacterState | None:

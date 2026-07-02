@@ -8,10 +8,11 @@ from .embedder import Embedder
 from .vector import Chunk, SearchHit, VectorStore
 
 
-def split_chapter(text: str, *, target: int = 600, hard_max: int = 900) -> list[str]:
+def split_chapter(text: str, *, target: int = 300, hard_max: int = 450) -> list[str]:
     """把一章正文按段落切成若干块，每块约 target 字。
 
     按段落聚合，尽量在段落边界切分，保持语义完整。
+    块较小（~300字）以便召回时整块注入、粒度聚焦。
     """
     # 去掉标题行
     body = re.sub(r"^#.*\n", "", text).strip()
@@ -89,7 +90,5 @@ def recall_block(
     lines = ["【相关历史片段（语义召回，供保持细节一致）】"]
     for h in hits:
         snippet = h.chunk.text.replace("\n", " ")
-        if len(snippet) > 200:
-            snippet = snippet[:200] + "…"
         lines.append(f"· [第{h.chunk.chapter}章] {snippet}")
     return "\n".join(lines)

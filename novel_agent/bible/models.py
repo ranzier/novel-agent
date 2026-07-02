@@ -66,6 +66,8 @@ class Character:
     power_tier: str = ""            # 当前境界（对应 PowerSystem.tiers 的某个 name）
     faction: str = ""               # 所属势力
     arc: str = ""                   # 成长弧光（一句话）
+    speech_style: str = ""          # 说话方式/口头禅/语气习惯（防对话 OOC）
+    signature: str = ""             # 标志性随身装备/外貌特征/习惯动作（防细节漂移）
     notes: str = ""
 
     @classmethod
@@ -84,6 +86,8 @@ class Character:
             power_tier=d.get("power_tier", ""),
             faction=d.get("faction", ""),
             arc=d.get("arc", ""),
+            speech_style=d.get("speech_style", ""),
+            signature=d.get("signature", ""),
             notes=d.get("notes", ""),
         )
 

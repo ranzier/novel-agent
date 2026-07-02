@@ -235,9 +235,9 @@ def _progress_brief(state: WorldState, last_written: int) -> str:
     if dead:
         parts.append(f"已死亡角色（不可再出场）：{'、'.join(dead)}")
     if state.open_threads:
-        parts.append("进行中的冲突/任务：" + "；".join(state.open_threads))
+        parts.append("进行中的冲突/任务：" + "；".join(t.text for t in state.open_threads))
     if state.foreshadowing:
-        parts.append("未回收伏笔：" + "；".join(state.foreshadowing))
+        parts.append("未回收伏笔：" + "；".join(f.text for f in state.foreshadowing))
     return "\n".join(parts)
 
 

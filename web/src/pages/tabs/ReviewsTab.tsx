@@ -2,6 +2,27 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 
+// 伏笔/线索埋设超过这么多章仍未回收，视为陈旧（与后端 mid_term.STALE_AFTER 一致）。
+const STALE_AFTER = 8;
+
+// 渲染一条伏笔/线索：兼容旧的纯字符串与新的 {text, planted_chapter} 对象；陈旧标红。
+function renderThread(t: any, i: number, currentChapter: number) {
+  const text = typeof t === "string" ? t : t?.text ?? t?.content ?? "";
+  const planted = typeof t === "object" && t ? t.planted_chapter ?? 0 : 0;
+  const age = planted > 0 ? currentChapter - planted : 0;
+  const stale = planted > 0 && age >= STALE_AFTER;
+  return (
+    <li key={i}>
+      {text}
+      {stale && (
+        <span className="tag err" style={{ marginLeft: 6 }}>
+          已埋 {age} 章
+        </span>
+      )}
+    </li>
+  );
+}
+
 export function ReviewsTab({ slug }: { slug: string }) {
   const qc = useQueryClient();
   const { data: reviews } = useQuery({
@@ -148,12 +169,26 @@ export function ReviewsTab({ slug }: { slug: string }) {
               {state?.protagonist_location || "—"}
             </p>
             <div className="muted" style={{ marginTop: 10 }}>
+              进行中的冲突/任务
+            </div>
+            <ul>
+              {(state?.open_threads ?? []).map((t: any, i: number) =>
+                renderThread(t, i, state?.last_chapter ?? 0),
+              )}
+              {(state?.open_threads ?? []).length === 0 && (
+                <li className="muted">—</li>
+              )}
+            </ul>
+            <div className="muted" style={{ marginTop: 10 }}>
               未回收伏笔
             </div>
             <ul>
-              {(state?.foreshadowing ?? []).map((f: any, i: number) => (
-                <li key={i}>{typeof f === "string" ? f : f.content ?? ""}</li>
-              ))}
+              {(state?.foreshadowing ?? []).map((f: any, i: number) =>
+                renderThread(f, i, state?.last_chapter ?? 0),
+              )}
+              {(state?.foreshadowing ?? []).length === 0 && (
+                <li className="muted">—</li>
+              )}
             </ul>
             <div className="muted">角色状态</div>
             <ul>

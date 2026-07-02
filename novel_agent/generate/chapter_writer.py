@@ -175,10 +175,31 @@ def _relevant_characters(
 
     lines = []
     for c in picked:
-        lines.append(
-            f"· {c.name}（{c.role}，{c.power_tier}）"
-            f"性格：{'/'.join(c.personality)}；目标：{c.goal}"
-        )
+        head = f"· {c.name}"
+        alias = "、".join(c.aliases)
+        if alias:
+            head += f"（又称{alias}）"
+        head += f"（{c.role}"
+        if c.power_tier:
+            head += f"，{c.power_tier}"
+        head += "）"
+        lines.append(head)
+        if c.appearance:
+            lines.append(f"  外貌：{c.appearance}")
+        traits = "/".join(c.personality)
+        if traits or c.goal:
+            seg = "  "
+            if traits:
+                seg += f"性格：{traits}"
+            if c.goal:
+                seg += ("；" if traits else "") + f"目标：{c.goal}"
+            lines.append(seg)
+        if c.speech_style:
+            lines.append(f"  说话：{c.speech_style}")
+        if c.signature:
+            lines.append(f"  标志：{c.signature}")
+        if c.arc:
+            lines.append(f"  成长弧：{c.arc}")
     return "\n".join(lines)
 
 

@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
-from .state_models import ChapterSummary, WorldState
+from .state_models import ChapterSummary, Thread, WorldState
+
+# 伏笔/线索埋设超过这么多章仍未回收，视为"陈旧"，写作时提醒推进/回收。
+STALE_AFTER = 8
 
 
 def mid_term_block(
@@ -29,7 +32,7 @@ def mid_term_block(
 
     # 1) 世界状态快照（硬事实）
     if state and state.last_chapter > 0:
-        parts.append(_format_state(state, progression_label))
+        parts.append(_format_state(state, progression_label, before_index))
 
     # 2) 早期章节摘要（跳过最近 skip_recent 章）
     cutoff = before_index - skip_recent
@@ -45,7 +48,17 @@ def mid_term_block(
     return "\n\n".join(parts)
 
 
-def _format_state(state: WorldState, progression_label: str = "") -> str:
+def _thread_line(t: Thread, current_chapter: int) -> tuple[str, bool]:
+    """渲染一条线索/伏笔，返回 (文本行, 是否陈旧)。"""
+    age = current_chapter - t.planted_chapter if t.planted_chapter > 0 else None
+    if age is not None and age >= STALE_AFTER:
+        return f"  · [已埋 {age} 章未回收，宜推进/回收] {t.text}", True
+    return f"  · {t.text}", False
+
+
+def _format_state(
+    state: WorldState, progression_label: str = "", current_chapter: int = 0
+) -> str:
     tier_label = (progression_label or "").strip() or "状态"
     lines = [f"【当前世界状态】（截至第 {state.last_chapter} 章）"]
     if state.timeline:
@@ -71,12 +84,24 @@ def _format_state(state: WorldState, progression_label: str = "") -> str:
     if dead:
         # 显式列出已死角色 —— 防止"死人复活"
         lines.append(f"已死亡（不可再出场）：{'、'.join(c.name for c in dead)}")
+
+    # 参照的"当前章"：优先用即将写的章号，否则退回快照章号
+    cur = current_chapter or state.last_chapter
+    has_stale = False
     if state.open_threads:
         lines.append("进行中的冲突/任务：")
         for t in state.open_threads:
-            lines.append(f"  · {t}")
+            line, stale = _thread_line(t, cur)
+            lines.append(line)
+            has_stale = has_stale or stale
     if state.foreshadowing:
         lines.append("未回收伏笔：")
-        for f in state.foreshadowing:
-            lines.append(f"  · {f}")
+        for t in state.foreshadowing:
+            line, stale = _thread_line(t, cur)
+            lines.append(line)
+            has_stale = has_stale or stale
+    if has_stale:
+        lines.append(
+            "（以上标注的伏笔/线索已埋较久，可考虑在近几章推进或回收，避免长期悬空。）"
+        )
     return "\n".join(lines)

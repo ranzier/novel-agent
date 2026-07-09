@@ -16,7 +16,7 @@ class ChapterSummary:
 
     index: int
     title: str = ""
-    summary: str = ""               # 本章发生了什么（100字内）
+    summary: str = ""               # 本章发生了什么（100~200字）
     events: list[str] = field(default_factory=list)   # 关键事件点
     characters: list[str] = field(default_factory=list)  # 实际出场角色
     foreshadowing: list[str] = field(default_factory=list)  # 本章埋下的伏笔

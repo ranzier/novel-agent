@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
+import { ConfirmModal } from "../../components/ConfirmModal";
 
 export function CharactersTab({ slug }: { slug: string }) {
+  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["characters", slug],
     queryFn: () => api.characters(slug),
@@ -15,10 +17,35 @@ export function CharactersTab({ slug }: { slug: string }) {
   const [edit, setEdit] = useState(false);
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
+  // 待删除角色（触发二次确认弹窗）；null 表示无
+  const [pendingDelete, setPendingDelete] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (data) setText(JSON.stringify(data, null, 2));
   }, [data]);
+
+  // 删除单个角色：从数组剔除后整体回存，再刷新列表
+  const doDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      const next = {
+        ...data,
+        characters: (data.characters ?? []).filter(
+          (c: any) => c !== pendingDelete,
+        ),
+      };
+      await api.saveCharacters(slug, next);
+      await qc.invalidateQueries({ queryKey: ["characters", slug] });
+      setMsg(`已删除「${pendingDelete.name}」✓`);
+      setPendingDelete(null);
+    } catch (e: any) {
+      setMsg("删除失败：" + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const save = async () => {
     let parsed;
@@ -93,7 +120,24 @@ export function CharactersTab({ slug }: { slug: string }) {
             <div key={i} className="card">
               <div className="spread">
                 <strong>{c.name}</strong>
-                <span className="tag">{c.role}</span>
+                <div className="row" style={{ gap: 6, alignItems: "center" }}>
+                  <span className="tag">{c.role}</span>
+                  <button
+                    title="删除该角色"
+                    onClick={() => {
+                      setMsg("");
+                      setPendingDelete(c);
+                    }}
+                    style={{
+                      padding: "2px 8px",
+                      fontSize: 12,
+                      color: "var(--red)",
+                      borderColor: "var(--red)",
+                    }}
+                  >
+                    删除
+                  </button>
+                </div>
               </div>
               <div className="muted" style={{ fontSize: 12, margin: "6px 0" }}>
                 {c.power_tier && progLabel && `${progLabel} ${c.power_tier}`}
@@ -116,6 +160,18 @@ export function CharactersTab({ slug }: { slug: string }) {
             </div>
           ))}
         </div>
+      )}
+
+      {pendingDelete && (
+        <ConfirmModal
+          title="删除角色"
+          message={`确定要从角色库删除「${pendingDelete.name}」吗？此操作会立即回存，无法撤销。（不影响已写章节正文，仅从角色库移除。）`}
+          confirmText="删除"
+          busy={deleting}
+          busyText="删除中…"
+          onConfirm={doDelete}
+          onClose={() => setPendingDelete(null)}
+        />
       )}
     </div>
   );

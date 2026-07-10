@@ -36,7 +36,7 @@ class WriteBody(BaseModel):
     no_review: bool = False
     no_vector: bool = False
     no_consolidate: bool = False
-    max_rewrites: int = 1
+    max_rewrites: int = 0
     author_note: str = ""
 
 
@@ -44,7 +44,7 @@ class RunBody(BaseModel):
     count: int = 0
     start: int = 0
     words: int = 2500
-    max_rewrites: int = 1
+    max_rewrites: int = 0
     stop_on_error: bool = False
     no_vector: bool = False
     author_note: str = ""
@@ -55,7 +55,7 @@ class RewriteBody(BaseModel):
     no_review: bool = False
     no_vector: bool = False
     no_consolidate: bool = False
-    max_rewrites: int = 1
+    max_rewrites: int = 0
     author_note: str = ""
 
 

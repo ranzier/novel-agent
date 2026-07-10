@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 
 // 写作风格为自由结构 JSON，用结构化 JSON 编辑器（带校验）读写。
 export function StyleTab({ slug }: { slug: string }) {
+  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["style", slug],
     queryFn: () => api.style(slug),
@@ -25,6 +26,7 @@ export function StyleTab({ slug }: { slug: string }) {
     }
     try {
       await api.saveStyle(slug, parsed);
+      await qc.invalidateQueries({ queryKey: ["style", slug] });
       setMsg("已保存 ✓");
     } catch (e: any) {
       setMsg("保存失败：" + e.message);

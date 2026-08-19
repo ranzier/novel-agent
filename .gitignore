@@ -9,3 +9,4 @@ books/
 node_modules/
 web/dist/
 *.tsbuildinfo
+.env.example

@@ -1,87 +1,103 @@
-"""记忆固化：写完一章后，从正文抽取摘要并更新世界状态。
+"""记忆固化：模型抽取事实，程序确定性构造摘要并合并世界状态。
 
-这是"写一章 → 巩固记忆 → 再写下一章"闭环的关键一环。
-用较便宜的模型（task=extract）做结构化抽取。
-
-抽取分两件事：
-  1) 本章摘要（ChapterSummary）—— 滚动累积成中期记忆
-  2) 在旧状态基础上，更新出新的世界状态快照（WorldState）
+模型只填写本章内容和相对上一章的变化。最终 ChapterSummary / WorldState
+的 schema、章节号、默认值和旧状态继承全部由程序控制。
 """
 
 from __future__ import annotations
 
 import json
 
-from ..llm import LLMGateway
+from ..llm import LLMError, LLMGateway
 from ..storage import _to_plain
 from .state_models import ChapterSummary, WorldState
 
-_SYSTEM = """你是小说连续性管理员，负责从正文中精确抽取事实，维护故事状态。
-你只记录正文中【明确发生】的事，不臆测、不脑补、不提前剧透。
-{tier_label}、生死、所在等状态，只在正文有明确依据时才改动。
-只输出 JSON，不要任何解释或代码块标记。"""
 
-_PROMPT = """这是小说《{title}》第 {index} 章《{ch_title}》的正文。
+class MemoryValidationError(LLMError):
+    """模型返回的事实不足以安全固化。"""
 
-【上一章末的世界状态】
+
+_SYSTEM = """你是小说事实抽取器。
+只记录正文中明确发生的事实，不臆测、不脑补、不提前剧透。
+只填写本章事实和相对上一章的状态变化，不要复制完整世界状态。
+只输出 JSON，不要解释或代码块标记。"""
+
+_FACTS_SCHEMA = """{
+  "facts": [
+    {"type": "summary", "text": "本章发生了什么（100~200字）"},
+    {"type": "event", "text": "关键事件，可有多条"},
+    {"type": "character", "text": "本章实际出场角色名，可有多条"},
+    {"type": "foreshadowing", "text": "本章新埋下且尚未回收的伏笔，可无"},
+    {"type": "scene_ending", "text": "最后一幕的地点、在场者、即时状态和未完成动作"}
+  ],
+  "state_changes": {
+      "timeline": null,
+      "protagonist_tier": null,
+      "protagonist_location": null,
+      "character_updates": [{
+        "name": "角色名",
+        "power_tier": null,
+        "status": null,
+        "location": null,
+        "note": null
+      }],
+      "items_add": [],
+      "items_remove": [],
+      "open_threads_add": [],
+      "open_threads_resolve": [],
+      "foreshadowing_resolve": []
+  }
+}"""
+
+_PROMPT = """这是小说《{title}》第 {index} 章《{ch_title}》。
+
+【上一章末世界状态（只用于判断变化，不要原样复制）】
 {prev_state}
 
 【本章正文】
 {body}
 
-请完成两件事，输出一个 JSON 对象：
+请抽取本章事实与相对上一章的状态变化，严格输出以下 JSON：
+{schema}
 
-1. summary：本章摘要
-2. new_state：在上一章末状态基础上，根据本章正文更新后的最新世界状态
+规则：
+- facts 是带 type/text 的事实列表；summary、event、scene_ending 必须依据正文填写。
+- state_changes 只写正文明确发生的变化；无变化的标量填 null，数组填 []。
+- character_updates 只列新出现或状态确有变化的角色；未变化角色不要重复。
+- items_remove、open_threads_resolve、foreshadowing_resolve 必须照抄旧状态原文；不确定就不填。
+- foreshadowing 事实会由程序加入摘要和未回收伏笔，无则不要输出该类型。
+- 不要输出 index、title、last_chapter 或完整 new_state，这些由程序生成。
+- {tier_label}等状态只在正文明确变化时填写。"""
 
-输出结构：
+_SUMMARY_PROMPT = """这是小说《{title}》第 {index} 章《{ch_title}》的正文。
+
+【本章正文】
+{body}
+
+只抽取本章摘要事实，输出 JSON：
 {{
-  "summary": {{
-    "index": {index},
-    "title": "{ch_title}",
-    "summary": "本章发生了什么（100~200字）",
-    "events": ["关键事件1", "关键事件2"],
-    "characters": ["本章实际出场的角色名"],
-    "foreshadowing": ["本章新埋下的伏笔（无则空数组）"],
-    "scene_ending": "本章结尾这一刻的瞬时场景态：地点、在场有谁、各自即时状态（受伤/昏迷/情绪/姿态）、未完成的动作或对话。供下一章无缝衔接用。"
-  }},
-  "new_state": {{
-    "last_chapter": {index},
-    "timeline": "故事内时间（若正文有交代，否则沿用旧值）",
-    "protagonist_tier": "主角当前{tier_label}（{tier_hint}）",
-    "protagonist_location": "主角当前所在",
-    "characters": [
-      {{"name": "角色名", "power_tier": "{tier_label}", "status": "存活/重伤/死亡/失踪", "location": "所在", "note": "即时状态"}}
-    ],
-    "items": ["主角当前持有的关键物品"],
-    "open_threads": [
-      {{"text": "进行中的冲突/任务/目标", "planted_chapter": 本线索开启于第几章}}
-    ],
-    "foreshadowing": [
-      {{"text": "截至本章仍未回收的伏笔", "planted_chapter": 本伏笔埋下于第几章}}
-    ]
+  "facts": {{
+    "summary_text": "本章发生了什么（100~200字）",
+    "events": ["至少一个关键事件"],
+    "characters_present": ["实际出场角色名"],
+    "new_foreshadowing": [],
+    "scene_ending": "最后一幕的地点、在场者、即时状态和未完成动作"
   }}
 }}
+只依据正文，只输出 JSON。"""
 
-注意：
-- new_state 是【全量快照】，要把旧状态里仍然成立的内容一并带上，而非只写变化。
-- 角色生死、{tier_label}等，必须以本章正文为准；正文没提到的角色，沿用旧状态。
-- protagonist_tier / power_tier 填的是角色当前的{tier_label}（如无此维度可留空），不要硬套不属于本作设定的说法。
-- foreshadowing / open_threads 的 planted_chapter：本章【新埋下/新开启】的填本章号 {index}；
-  从旧状态【沿用】的，必须保持其原有的 planted_chapter 不变，不要改写；本章被回收/解决的则从列表移除。
-- scene_ending 只写本章【最后一幕】的即时态，不要复述全章；它是下一章的衔接锚点，
-  务必交代清楚结尾在场角色的受伤/情绪/姿态与悬而未决的动作。"""
+_REPAIR_PROMPT = """请重新执行下面的事实抽取任务。上一次 JSON 可以解析，但内容字段校验失败。
 
+【原始任务】
+{original_prompt}
 
-def _tier_terms(progression_label: str) -> tuple[str, str]:
-    """按题材的进阶体系称谓，给出 (字段称谓, 填写提示)。
+【校验错误】
+{error}
 
-    玄幻=境界、历史=官职/权势、都市=地位…；留空则用中性的"状态/层级"。
-    """
-    label = (progression_label or "").strip()
-    if not label:
-        return "身份/层级", "正文明确变化时才改动，无量化体系可留空"
-    return label, f"仅在正文明确变化（晋升/贬黜/突破等）时才改动，按本作的「{label}」维度描述"
+【上一次返回】
+{payload}
+
+必须输出顶层 facts 和 state_changes。facts 可以是带 type/text 的数组；只输出 JSON。"""
 
 
 def consolidate(
@@ -94,53 +110,29 @@ def consolidate(
     prev_state: WorldState,
     progression_label: str = "",
 ) -> tuple[ChapterSummary, WorldState]:
-    """抽取本章摘要并更新世界状态。返回 (摘要, 新状态)。
-
-    progression_label: 本作进阶体系的称谓（玄幻=境界、历史=官职/权势…），
-    用于让抽取 prompt 按题材措辞，避免历史小说被硬塞"境界/凡人"这类修仙说法。
-    """
-    tier_label, tier_hint = _tier_terms(progression_label)
-    prev_json = json.dumps(_to_plain(prev_state), ensure_ascii=False, indent=2)
+    """抽取本章事实，由程序将增量合并到上一章世界状态。"""
+    tier_label = (progression_label or "").strip() or "身份/层级"
     prompt = _PROMPT.format(
         title=title,
         index=index,
         ch_title=chapter_title,
-        prev_state=prev_json,
+        prev_state=json.dumps(
+            _to_plain(prev_state), ensure_ascii=False, indent=2
+        ),
         body=body,
+        schema=_FACTS_SCHEMA,
         tier_label=tier_label,
-        tier_hint=tier_hint,
     )
-    data = gateway.complete_json(
-        prompt, system=_SYSTEM.format(tier_label=tier_label),
-        task="extract", max_tokens=4096,
+    facts = _request_facts(
+        gateway, prompt=prompt, require_changes=True, max_tokens=4096
     )
-    summary = ChapterSummary.from_dict(data.get("summary", {}))
-    new_state = WorldState.from_dict(data.get("new_state", {}))
-    # 兜底：确保章节号正确
-    summary.index = index
-    if not summary.title:
-        summary.title = chapter_title
-    new_state.last_chapter = index
+    summary = _build_summary(
+        facts, index=index, chapter_title=chapter_title
+    )
+    new_state = _merge_world_state(
+        prev_state, facts, index=index, summary=summary
+    )
     return summary, new_state
-
-
-_SUMMARY_ONLY_PROMPT = """这是小说《{title}》第 {index} 章《{ch_title}》的正文。
-
-【本章正文】
-{body}
-
-请只抽取本章摘要，输出如下 JSON：
-{{
-  "index": {index},
-  "title": "{ch_title}",
-  "summary": "本章发生了什么（100~200字）",
-  "events": ["关键事件1", "关键事件2"],
-  "characters": ["本章实际出场的角色名"],
-  "foreshadowing": ["本章新埋下的伏笔（无则空数组）"],
-  "scene_ending": "本章结尾这一刻的瞬时场景态：地点、在场有谁、各自即时状态、未完成的动作或对话"
-}}
-
-只依据正文，不臆测、不脑补、不提前剧透。只输出 JSON。"""
 
 
 def extract_summary_only(
@@ -151,20 +143,493 @@ def extract_summary_only(
     chapter_title: str,
     body: str,
 ) -> ChapterSummary:
-    """仅从正文抽取章节摘要（不更新世界状态）。
-
-    用于作者手改正文后重建摘要——只同步摘要层，不动当前世界状态快照
-    （状态是截至最新章的当前快照，重抽中间章无干净的 prev_state 可依据）。
-    """
-    prompt = _SUMMARY_ONLY_PROMPT.format(
+    """只抽取摘要内容；最终 ChapterSummary schema 由程序构造。"""
+    prompt = _SUMMARY_PROMPT.format(
         title=title, index=index, ch_title=chapter_title, body=body
     )
-    data = gateway.complete_json(
-        prompt, system=_SYSTEM.format(tier_label="身份/层级"),
-        task="extract", max_tokens=2048,
+    facts = _request_facts(
+        gateway, prompt=prompt, require_changes=False, max_tokens=2048
     )
-    summary = ChapterSummary.from_dict(data)
-    summary.index = index
-    if not summary.title:
-        summary.title = chapter_title
-    return summary
+    return _build_summary(facts, index=index, chapter_title=chapter_title)
+
+
+def _request_facts(
+    gateway: LLMGateway,
+    *,
+    prompt: str,
+    require_changes: bool,
+    max_tokens: int,
+) -> dict:
+    data = gateway.complete_json(
+        prompt, system=_SYSTEM, task="extract",
+        max_tokens=max_tokens, temperature=0.0,
+    )
+    try:
+        return _validate_facts(data, require_changes=require_changes)
+    except MemoryValidationError as first_error:
+        repaired = gateway.complete_json(
+            _REPAIR_PROMPT.format(
+                original_prompt=prompt,
+                error=first_error,
+                payload=_diagnostic_payload(data),
+            ),
+            system=_SYSTEM,
+            task="extract",
+            max_tokens=max_tokens,
+            temperature=0.0,
+        )
+        try:
+            return _validate_facts(repaired, require_changes=require_changes)
+        except MemoryValidationError as second_error:
+            raise MemoryValidationError(
+                "事实抽取修复后仍无效："
+                f"首次错误={first_error}；修复错误={second_error}；"
+                f"{_top_level_shape(repaired)}"
+            ) from second_error
+
+
+def _validate_facts(data: object, *, require_changes: bool) -> dict:
+    if not isinstance(data, dict):
+        raise MemoryValidationError("事实抽取结果不是 JSON 对象")
+
+    raw = data.get("facts", data)
+    content = _normalize_fact_content(raw)
+
+    # 兼容模型把 state_changes 放在 facts 内或与 facts 同级。
+    nested_changes = raw.get("state_changes") if isinstance(raw, dict) else None
+    changes = data.get("state_changes", nested_changes)
+    if changes is None:
+        changes = {}
+    if require_changes and "state_changes" not in data and nested_changes is None:
+        raise MemoryValidationError("facts 缺少 state_changes 对象")
+    if not isinstance(changes, dict):
+        raise MemoryValidationError("facts.state_changes 不是对象")
+
+    return {
+        **content,
+        "state_changes": _normalize_changes(changes),
+    }
+
+
+def _normalize_fact_content(raw: object) -> dict:
+    """接受事实对象或事实列表，输出程序内部固定的内容字段。"""
+    if isinstance(raw, dict):
+        return _normalize_fact_object(raw)
+    if isinstance(raw, list):
+        return _normalize_fact_list(raw)
+    raise MemoryValidationError("facts 缺失，且不是对象或数组")
+
+
+def _normalize_fact_object(raw: dict) -> dict:
+    # 兼容 summary 为字符串或模型额外包一层 summary 对象。
+    summary_value = raw.get(
+        "summary_text",
+        raw.get("summary", raw.get("chapter_summary", raw.get("overview"))),
+    )
+    if isinstance(summary_value, dict):
+        summary_value = summary_value.get("text", summary_value.get("summary"))
+
+    events = _fact_strings(
+        raw.get("events", raw.get("key_events", raw.get("event_facts", []))),
+        "facts.events",
+    )
+    characters = _fact_strings(
+        raw.get(
+            "characters_present",
+            raw.get("characters", raw.get("present_characters", [])),
+        ),
+        "facts.characters_present",
+    )
+    foreshadowing = _fact_strings(
+        raw.get(
+            "new_foreshadowing",
+            raw.get("foreshadowing", raw.get("new_clues", [])),
+        ),
+        "facts.new_foreshadowing",
+    )
+    scene_value = raw.get(
+        "scene_ending",
+        raw.get("ending", raw.get("final_scene", raw.get("scene_end"))),
+    )
+    if isinstance(scene_value, dict):
+        scene_value = scene_value.get("text", scene_value.get("summary"))
+
+    # Claude 偶尔会自行改成“本章事实”“结局状态”等字段名。
+    # 字段名不属于最终 schema，因此只要值仍是模型返回的
+    # 足够长的叙事文本，就可用于程序的确定性组装。
+    fallback_facts = _fallback_narrative_facts(raw)
+    if not events:
+        events = fallback_facts
+
+    # 如果模型只给出事件事实，摘要和结尾由这些事实确定性拼装，
+    # 不新增任何模型未提供的信息。
+    if not isinstance(summary_value, str) or not summary_value.strip():
+        summary_value = "；".join(events)
+    if not isinstance(scene_value, str) or not scene_value.strip():
+        scene_value = events[-1] if events else ""
+    return _validated_content(
+        summary_value, events, characters, foreshadowing, scene_value
+    )
+
+
+def _fallback_narrative_facts(raw: dict) -> list[str]:
+    """从自定义字段中只取模型已返回的叙事文本。
+
+    这是输入兼容层，不会生成新内容，也不会把角色名、
+    章节号或 state_changes 当成情节。
+    """
+    known_keys = {
+        "summary_text", "summary", "chapter_summary", "overview",
+        "events", "key_events", "event_facts",
+        "characters_present", "characters", "present_characters",
+        "new_foreshadowing", "foreshadowing", "new_clues",
+        "scene_ending", "ending", "final_scene", "scene_end",
+        "state_changes", "index", "title", "last_chapter",
+    }
+    values: list[str] = []
+    for key, value in raw.items():
+        if str(key).strip().lower() in known_keys:
+            continue
+        values.extend(_narrative_strings(value))
+    return _dedupe(values)
+
+
+def _narrative_strings(value: object) -> list[str]:
+    """递归收集自定义事实字段里的长文本叶子。"""
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if len(text) >= 10 else []
+    if isinstance(value, list):
+        result: list[str] = []
+        for item in value:
+            result.extend(_narrative_strings(item))
+        return result
+    if isinstance(value, dict):
+        result: list[str] = []
+        for key, item in value.items():
+            if str(key).strip().lower() in {
+                "type", "kind", "category", "name", "id",
+                "index", "chapter", "last_chapter",
+            }:
+                continue
+            result.extend(_narrative_strings(item))
+        return result
+    return []
+
+
+def _normalize_fact_list(raw: list) -> dict:
+    grouped: dict[str, list[str]] = {
+        "summary": [],
+        "event": [],
+        "character": [],
+        "foreshadowing": [],
+        "scene_ending": [],
+    }
+    untyped: list[str] = []
+    aliases = {
+        "summary": "summary", "摘要": "summary", "overview": "summary",
+        "event": "event", "事件": "event", "fact": "event", "事实": "event",
+        "character": "character", "人物": "character", "角色": "character",
+        "foreshadowing": "foreshadowing", "伏笔": "foreshadowing", "clue": "foreshadowing",
+        "scene_ending": "scene_ending", "ending": "scene_ending", "结尾": "scene_ending",
+    }
+    for pos, item in enumerate(raw):
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                untyped.append(text)
+            continue
+        if not isinstance(item, dict):
+            raise MemoryValidationError(f"facts[{pos}] 不是字符串或对象")
+        kind = str(
+            item.get("type", item.get("kind", item.get("category", "event")))
+        ).strip().lower()
+        value = item.get("text", item.get("content", item.get("value")))
+        if not isinstance(value, str) or not value.strip():
+            raise MemoryValidationError(f"facts[{pos}].text 为空")
+        grouped[aliases.get(kind, "event")].append(value.strip())
+
+    events = _dedupe(grouped["event"] + untyped)
+    summary_parts = grouped["summary"]
+    summary_text = summary_parts[0] if summary_parts else "；".join(events)
+    ending_parts = grouped["scene_ending"]
+    scene_ending = ending_parts[-1] if ending_parts else (events[-1] if events else "")
+    return _validated_content(
+        summary_text,
+        events,
+        _dedupe(grouped["character"]),
+        _dedupe(grouped["foreshadowing"]),
+        scene_ending,
+    )
+
+
+def _validated_content(
+    summary_text: object,
+    events: list[str],
+    characters: list[str],
+    foreshadowing: list[str],
+    scene_ending: object,
+) -> dict:
+    if not isinstance(summary_text, str) or len(summary_text.strip()) < 20:
+        raise MemoryValidationError("facts 中没有足够的摘要或事件事实")
+    if not events:
+        # 摘要本身也是模型内容，可安全作为单个关键事件使用。
+        events = [summary_text.strip()]
+    if not isinstance(scene_ending, str) or len(scene_ending.strip()) < 10:
+        raise MemoryValidationError("facts 中没有足够的结尾场景事实")
+    return {
+        "summary_text": summary_text.strip(),
+        "events": _dedupe(events),
+        "characters_present": _dedupe(characters),
+        "new_foreshadowing": _dedupe(foreshadowing),
+        "scene_ending": scene_ending.strip(),
+    }
+
+
+def _fact_strings(value: object, field: str) -> list[str]:
+    """兼容字符串数组以及 {text/content/value: ...} 事实数组。"""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if not isinstance(value, list):
+        raise MemoryValidationError(f"{field} 不是字符串或数组")
+    result: list[str] = []
+    for pos, item in enumerate(value):
+        if isinstance(item, str):
+            text = item.strip()
+        elif isinstance(item, dict):
+            candidate = item.get("text", item.get("content", item.get("value")))
+            text = candidate.strip() if isinstance(candidate, str) else ""
+        else:
+            text = ""
+        if not text:
+            raise MemoryValidationError(f"{field}[{pos}] 没有文本内容")
+        result.append(text)
+    return _dedupe(result)
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        key = _norm(value)
+        if key and key not in seen:
+            result.append(value)
+            seen.add(key)
+    return result
+
+
+def _normalize_changes(changes: dict) -> dict:
+    result: dict = {}
+    for key in ("timeline", "protagonist_tier", "protagonist_location"):
+        value = changes.get(key)
+        if value is not None and not isinstance(value, str):
+            raise MemoryValidationError(
+                f"facts.state_changes.{key} 必须是字符串或 null"
+            )
+        result[key] = (
+            value.strip()
+            if isinstance(value, str) and value.strip()
+            else None
+        )
+
+    raw_updates = changes.get("character_updates", [])
+    if not isinstance(raw_updates, list):
+        raise MemoryValidationError(
+            "facts.state_changes.character_updates 不是数组"
+        )
+    updates: list[dict] = []
+    for pos, update in enumerate(raw_updates):
+        if not isinstance(update, dict):
+            raise MemoryValidationError(
+                f"character_updates[{pos}] 不是对象"
+            )
+        name = update.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise MemoryValidationError(
+                f"character_updates[{pos}].name 为空"
+            )
+        normalized = {"name": name.strip()}
+        for key in ("power_tier", "status", "location", "note"):
+            value = update.get(key)
+            if value is not None and not isinstance(value, str):
+                raise MemoryValidationError(
+                    f"character_updates[{pos}].{key} 必须是字符串或 null"
+                )
+            if isinstance(value, str) and value.strip():
+                normalized[key] = value.strip()
+        updates.append(normalized)
+    result["character_updates"] = updates
+
+    for key in (
+        "items_add", "items_remove", "open_threads_add",
+        "open_threads_resolve", "foreshadowing_resolve",
+    ):
+        result[key] = _string_list(
+            changes.get(key, []), f"facts.state_changes.{key}"
+        )
+    return result
+
+
+def _build_summary(
+    facts: dict, *, index: int, chapter_title: str
+) -> ChapterSummary:
+    # 模型即使输出了同名字段，也无法改变 index/title/schema。
+    return ChapterSummary(
+        index=index,
+        title=chapter_title,
+        summary=facts["summary_text"],
+        events=list(facts["events"]),
+        characters=list(facts["characters_present"]),
+        foreshadowing=list(facts["new_foreshadowing"]),
+        scene_ending=facts["scene_ending"],
+    )
+
+
+def _merge_world_state(
+    prev_state: WorldState,
+    facts: dict,
+    *,
+    index: int,
+    summary: ChapterSummary,
+) -> WorldState:
+    """复制旧状态，只应用模型明确给出的增量。"""
+    plain = _to_plain(prev_state)
+    state = dict(plain) if isinstance(plain, dict) else {}
+    state["last_chapter"] = index
+    state.setdefault("timeline", "")
+    state.setdefault("protagonist_tier", "")
+    state.setdefault("protagonist_location", "")
+    for key in ("characters", "items", "open_threads", "foreshadowing"):
+        if not isinstance(state.get(key), list):
+            state[key] = []
+
+    changes = facts["state_changes"]
+    for key in ("timeline", "protagonist_tier", "protagonist_location"):
+        if changes.get(key):
+            state[key] = changes[key]
+
+    _merge_characters(state["characters"], changes["character_updates"])
+    _merge_strings(
+        state["items"],
+        additions=changes["items_add"],
+        removals=changes["items_remove"],
+    )
+    _merge_threads(
+        state["open_threads"],
+        additions=changes["open_threads_add"],
+        removals=changes["open_threads_resolve"],
+        chapter=index,
+    )
+    _merge_threads(
+        state["foreshadowing"],
+        additions=summary.foreshadowing,
+        removals=changes["foreshadowing_resolve"],
+        chapter=index,
+    )
+    return WorldState.from_dict(state)
+
+
+def _merge_characters(characters: list, updates: list[dict]) -> None:
+    positions = {
+        str(item.get("name", "")).strip(): pos
+        for pos, item in enumerate(characters)
+        if isinstance(item, dict) and str(item.get("name", "")).strip()
+    }
+    for update in updates:
+        name = update["name"]
+        if name in positions:
+            target = characters[positions[name]]
+        else:
+            target = {
+                "name": name,
+                "power_tier": "",
+                "status": "存活",
+                "location": "",
+                "note": "",
+            }
+            characters.append(target)
+            positions[name] = len(characters) - 1
+        for key in ("power_tier", "status", "location", "note"):
+            if key in update:
+                target[key] = update[key]
+
+
+def _merge_strings(
+    values: list, *, additions: list[str], removals: list[str]
+) -> None:
+    remove_keys = {_norm(value) for value in removals}
+    values[:] = [value for value in values if _norm(value) not in remove_keys]
+    existing = {_norm(value) for value in values}
+    for value in additions:
+        key = _norm(value)
+        if key and key not in existing:
+            values.append(value)
+            existing.add(key)
+
+
+def _merge_threads(
+    values: list,
+    *,
+    additions: list[str],
+    removals: list[str],
+    chapter: int,
+) -> None:
+    remove_keys = {_norm(value) for value in removals}
+    values[:] = [
+        value for value in values
+        if _norm(_thread_text(value)) not in remove_keys
+    ]
+    existing = {_norm(_thread_text(value)) for value in values}
+    for value in additions:
+        key = _norm(value)
+        if key and key not in existing:
+            values.append({"text": value, "planted_chapter": chapter})
+            existing.add(key)
+
+
+def _thread_text(value: object) -> str:
+    if isinstance(value, dict):
+        return str(value.get("text", ""))
+    return str(value)
+
+
+def _norm(value: object) -> str:
+    return "".join(str(value).split())
+
+
+def _string_list(
+    value: object, field: str, *, required: bool = False
+) -> list[str]:
+    if not isinstance(value, list):
+        raise MemoryValidationError(f"{field} 不是数组")
+    result: list[str] = []
+    seen: set[str] = set()
+    for pos, item in enumerate(value):
+        if not isinstance(item, str):
+            raise MemoryValidationError(f"{field}[{pos}] 不是字符串")
+        text = item.strip()
+        key = _norm(text)
+        if text and key not in seen:
+            result.append(text)
+            seen.add(key)
+    if required and not result:
+        raise MemoryValidationError(f"{field} 为空")
+    return result
+
+
+def _diagnostic_payload(data: object, *, limit: int = 6000) -> str:
+    try:
+        value = json.dumps(data, ensure_ascii=False, indent=2)
+    except (TypeError, ValueError):
+        value = repr(data)
+    if len(value) > limit:
+        value = value[:limit] + " ...truncated"
+    return value
+
+
+def _top_level_shape(data: object) -> str:
+    if isinstance(data, dict):
+        return "顶层字段：" + ", ".join(map(str, data.keys()))
+    return f"顶层类型：{type(data).__name__}"

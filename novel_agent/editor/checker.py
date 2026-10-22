@@ -20,6 +20,49 @@ from ..memory.state_models import ChapterSummary, WorldState
 from .models import Issue, ReviewResult, Severity
 
 
+_SENTENCE_ENDINGS = "。！？!?…"
+_TRAILING_CLOSERS = "\"'”’」』】》）)]"
+
+
+def body_integrity_checks(*, index: int, body: str) -> list[Issue]:
+    """Cheap structural guards that must pass before memory extraction."""
+    text = (body or "").strip()
+    if not text:
+        return [Issue(
+            severity=Severity.ERROR,
+            category="完整性",
+            message="章节正文为空",
+            source="rule",
+        )]
+
+    issues: list[Issue] = []
+    tail = text.rstrip(_TRAILING_CLOSERS)
+    if not tail or tail[-1] not in _SENTENCE_ENDINGS:
+        issues.append(Issue(
+            severity=Severity.ERROR,
+            category="完整性",
+            message="章节结尾没有完整句末标点，疑似生成被截断",
+            evidence=text[-40:],
+            source="rule",
+        ))
+
+    for opener, closer, label in (
+        ("“", "”", "双引号"),
+        ("「", "」", "直角引号"),
+        ("『", "』", "双直角引号"),
+        ("《", "》", "书名号"),
+    ):
+        if text.count(opener) != text.count(closer):
+            issues.append(Issue(
+                severity=Severity.ERROR,
+                category="完整性",
+                message=f"章节{label}未成对，疑似内容缺失",
+                evidence=text[-80:],
+                source="rule",
+            ))
+    return issues
+
+
 # ---------------- 确定性规则校验 ----------------
 
 def _tier_rank(power_system: PowerSystem, tier_name: str) -> int | None:
@@ -226,13 +269,14 @@ def review_chapter(
     use_llm: bool = True,
 ) -> ReviewResult:
     """对一章做完整校验：确定性规则 + LLM 语义。"""
-    issues = rule_checks(
+    issues = body_integrity_checks(index=new_summary.index, body=body)
+    issues.extend(rule_checks(
         bible=bible,
         characters=characters,
         prev_state=prev_state,
         new_summary=new_summary,
         new_state=new_state,
-    )
+    ))
     if use_llm:
         issues.extend(
             llm_checks(

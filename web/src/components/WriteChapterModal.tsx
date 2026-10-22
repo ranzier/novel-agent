@@ -9,12 +9,17 @@ export function WriteChapterModal({
   confirmText = "开始写作",
 }: {
   onClose: () => void;
-  onConfirm: (opts: { words: number; author_note: string }) => void;
+  onConfirm: (opts: {
+    words: number;
+    author_note: string;
+    no_style_polish: boolean;
+  }) => void;
   title?: string;
   confirmText?: string;
 }) {
   const [words, setWords] = useState(2500);
   const [note, setNote] = useState("");
+  const [skipStylePolish, setSkipStylePolish] = useState(false);
 
   return (
     <div className="drawer-mask" onClick={onClose}>
@@ -47,11 +52,25 @@ export function WriteChapterModal({
           为目标值，实际生成会有出入（模型对中文字数控制不精确）。
         </div>
 
+        <label className="row" style={{ gap: 8, cursor: "pointer", marginBottom: 16 }}>
+          <input
+            type="checkbox"
+            checked={skipStylePolish}
+            onChange={(e) => setSkipStylePolish(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          <span>本次跳过本地 Qwen 去 AI 腔</span>
+        </label>
+
         <div className="row" style={{ justifyContent: "flex-end" }}>
           <button onClick={onClose}>取消</button>
           <button
             className="primary"
-            onClick={() => onConfirm({ words, author_note: note.trim() })}
+            onClick={() => onConfirm({
+              words,
+              author_note: note.trim(),
+              no_style_polish: skipStylePolish,
+            })}
           >
             {confirmText}
           </button>

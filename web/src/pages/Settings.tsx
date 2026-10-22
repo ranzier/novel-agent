@@ -8,7 +8,7 @@ const FIELDS: {
   key: string;
   label: string;
   sensitive: boolean;
-  group: "model" | "context";
+  group: "model" | "polish" | "context";
   placeholder?: string;
   hint?: string;
 }[] = [
@@ -57,6 +57,70 @@ const FIELDS: {
     label: "Embedding 维度（可选）",
     sensitive: false,
     group: "model",
+  },
+  // —— 本地 Qwen 去 AI 腔 ——
+  {
+    key: "STYLE_POLISH_ENABLED",
+    label: "默认启用去 AI 腔",
+    sensitive: false,
+    group: "polish",
+    placeholder: "true / false",
+    hint: "true 时写完每一稿后自动调用本地 Qwen；服务不可用会保留 Claude 初稿。",
+  },
+  {
+    key: "STYLE_POLISH_BASE_URL",
+    label: "本地服务 Base URL",
+    sensitive: false,
+    group: "polish",
+    placeholder: "http://127.0.0.1:8080/v1",
+  },
+  {
+    key: "STYLE_POLISH_MODEL",
+    label: "本地模型名",
+    sensitive: false,
+    group: "polish",
+    placeholder: "qwen3-ai-style",
+    hint: "推荐用 llama-server --alias qwen3-ai-style；单模型服务也会自动识别。",
+  },
+  {
+    key: "STYLE_POLISH_CONCURRENCY",
+    label: "段落并发数",
+    sensitive: false,
+    group: "polish",
+    hint: "建议与 llama-server 的 -np 一致，默认 2。",
+  },
+  {
+    key: "STYLE_POLISH_TIMEOUT",
+    label: "单段超时（秒）",
+    sensitive: false,
+    group: "polish",
+  },
+  {
+    key: "STYLE_POLISH_MIN_CHARS",
+    label: "最短处理字数",
+    sensitive: false,
+    group: "polish",
+    hint: "更短的节奏句原样保留，默认 15。",
+  },
+  {
+    key: "STYLE_POLISH_MAX_CHARS",
+    label: "最长处理字数",
+    sensitive: false,
+    group: "polish",
+    hint: "与当前训练数据上限一致，默认 220。",
+  },
+  {
+    key: "STYLE_POLISH_MAX_TOKENS",
+    label: "单段最大输出 Token",
+    sensitive: false,
+    group: "polish",
+  },
+  {
+    key: "STYLE_POLISH_TEMPERATURE",
+    label: "改写温度",
+    sensitive: false,
+    group: "polish",
+    hint: "建议保持低温，默认 0.2。",
   },
   // —— Prompt 上下文参数 ——
   {
@@ -114,6 +178,8 @@ export function Settings() {
   const [msg, setMsg] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string>("");
+  const [testingStyle, setTestingStyle] = useState(false);
+  const [styleTestResult, setStyleTestResult] = useState<string>("");
 
   // 初始化：敏感字段显示脱敏值（占位），非敏感字段显示真实值
   useEffect(() => {
@@ -163,6 +229,25 @@ export function Settings() {
       setTestResult("✗ 失败：" + e.message);
     } finally {
       setTesting(false);
+    }
+  };
+
+  const testStyle = async () => {
+    setTestingStyle(true);
+    setStyleTestResult("");
+    try {
+      const r = await api.testStyleConfig();
+      if (r.ok) {
+        setStyleTestResult(`✓ 连通且输出校验通过：${r.reply}`);
+      } else if (r.rolled_back) {
+        setStyleTestResult(`✗ 模型有响应，但输出会被安全回退：${(r.problems ?? []).join("、")}`);
+      } else {
+        setStyleTestResult(`✗ 失败：${r.error ?? "未知错误"}`);
+      }
+    } catch (e: any) {
+      setStyleTestResult("✗ 失败：" + e.message);
+    } finally {
+      setTestingStyle(false);
     }
   };
 
@@ -220,6 +305,22 @@ export function Settings() {
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>模型与 Key</h3>
         {FIELDS.filter((f) => f.group === "model").map(renderField)}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>本地 Qwen 去 AI 腔</h3>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+          Claude 写完每一稿后按完整段落处理；数字、专名、否定或对白结构变化时自动回退原段。
+        </div>
+        {FIELDS.filter((f) => f.group === "polish").map(renderField)}
+        <button onClick={testStyle} disabled={testingStyle}>
+          {testingStyle ? "测试中…" : "测试本地 Qwen 连通"}
+        </button>
+        {styleTestResult && (
+          <div className="muted" style={{ marginTop: 12, fontSize: 13 }}>
+            {styleTestResult}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>

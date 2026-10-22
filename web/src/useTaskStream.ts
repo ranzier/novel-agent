@@ -35,7 +35,13 @@ export function useTaskStream(taskId: string | null) {
         const ev: ProgressEvent = JSON.parse(e.data);
 
         setGroups((prev) => {
-          const next = [...prev];
+          // React StrictMode 会在开发环境重复执行 updater 来检查纯函数。
+          // 必须连内部对象/数组一起复制，不能修改 prev 中的 group，
+          // 否则同一条 SSE 增量会被追加两次，形成“李李恒”式叠字。
+          const next = prev.map((group) => ({
+            ...group,
+            lines: [...group.lines],
+          }));
           const cur = next[next.length - 1];
 
           if (ev.kind === "step") {

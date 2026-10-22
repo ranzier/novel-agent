@@ -25,7 +25,7 @@ export function OverviewTab({
   if (!ov) return <p className="muted">加载中…</p>;
   const st = ov.state ?? {};
 
-  const startWrite = async (opts: { words: number; author_note: string }) => {
+  const startWrite = async (opts: { words: number; author_note: string; no_style_polish: boolean }) => {
     setShowWrite(false);
     setActionMsg("");
     try {
@@ -49,6 +49,7 @@ export function OverviewTab({
     count: number;
     words: number;
     author_note: string;
+    no_style_polish: boolean;
   }) => {
     setShowBatch(false);
     setActionMsg("");

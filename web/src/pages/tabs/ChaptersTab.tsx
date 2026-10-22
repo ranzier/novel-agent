@@ -37,6 +37,7 @@ export function ChaptersTab({
   const [showExtend, setShowExtend] = useState(false);
   const [resumming, setResumming] = useState(false);
   const [showResumConfirm, setShowResumConfirm] = useState(false);
+  const [showMemoryConfirm, setShowMemoryConfirm] = useState(false);
   const [showRewrite, setShowRewrite] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -72,7 +73,7 @@ export function ChaptersTab({
   // 大纲接口 404 表示尚未生成大纲；此时无法写章，需先去「大纲」页生成
   const noOutline = !outlineLoading && (outlineError || plannedMax === 0);
 
-  const startWrite = async (opts: { words: number; author_note: string }) => {
+  const startWrite = async (opts: { words: number; author_note: string; no_style_polish: boolean }) => {
     setShowWrite(false);
     setActionMsg("");
     try {
@@ -97,6 +98,7 @@ export function ChaptersTab({
     count: number;
     words: number;
     author_note: string;
+    no_style_polish: boolean;
   }) => {
     setShowBatch(false);
     setActionMsg("");
@@ -134,11 +136,22 @@ export function ChaptersTab({
       setShowResumConfirm(false);
     }
   };
-  const rewrite = async (opts: { words: number; author_note: string }) => {
+  const rewrite = async (opts: { words: number; author_note: string; no_style_polish: boolean }) => {
     if (sel === null) return;
     setShowRewrite(false);
     const { task_id } = await api.rewrite(slug, sel, opts);
     onTask(task_id, `重写第 ${sel} 章`);
+  };
+  const rebuildMemory = async () => {
+    if (sel === null) return;
+    setShowMemoryConfirm(false);
+    setActionMsg("");
+    try {
+      const { task_id } = await api.rebuildMemory(slug, sel);
+      onTask(task_id, `补全到第 ${sel} 章的记忆`);
+    } catch (e: any) {
+      setActionMsg(e.message || "补全记忆失败");
+    }
   };
   const doDelete = async () => {
     if (sel === null) return;
@@ -254,6 +267,15 @@ export function ChaptersTab({
               )}
               {!editing && (
                 <button
+                  onClick={() => setShowMemoryConfirm(true)}
+                  title="不重写正文，从当前世界状态的下一章开始顺序补齐摘要、世界状态和向量索引"
+                  style={{ fontSize: 12, padding: "3px 10px", marginLeft: 8 }}
+                >
+                  ⟳ 补全记忆
+                </button>
+              )}
+              {!editing && (
+                <button
                   onClick={() => setShowRewrite(true)}
                   title="重新生成本章正文（覆盖现有内容，并更新摘要与世界状态）"
                   style={{ fontSize: 12, padding: "3px 10px", marginLeft: 8 }}
@@ -331,6 +353,15 @@ export function ChaptersTab({
           busyText="生成中…"
           onConfirm={resummarize}
           onClose={() => setShowResumConfirm(false)}
+        />
+      )}
+      {showMemoryConfirm && (
+        <ConfirmModal
+          title={`补全到第 ${sel} 章的记忆`}
+          message="不会重写或再次润色正文。系统会从当前世界状态的下一章开始，按顺序重建每章摘要、世界状态、校验记录和向量索引；任一章失败即停止，不会跨章提交。是否继续？"
+          confirmText="开始补全"
+          onConfirm={rebuildMemory}
+          onClose={() => setShowMemoryConfirm(false)}
         />
       )}
       {showRewrite && (

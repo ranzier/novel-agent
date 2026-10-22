@@ -24,6 +24,7 @@ def write_one_chapter(
     do_review: bool,
     max_rewrites: int,
     use_vector: bool = True,
+    use_style_polish: bool | None = None,
     author_note: str = "",
     update_world_state: bool = True,
     reporter: Reporter | None = None,
@@ -34,7 +35,9 @@ def write_one_chapter(
     用于重写非最新章：避免用旧章状态覆盖反映后续进度的世界快照。
     """
     rep = reporter or ConsoleReporter()
-    from .editor import review_chapter
+    from .editor import (
+        Issue, ReviewResult, Severity, body_integrity_checks, review_chapter,
+    )
     from .memory import consolidate, index_chapter, recall_block
 
     bible = project.load_bible()
@@ -88,9 +91,27 @@ def write_one_chapter(
     text = ""
     summary = new_state = None
     review = None
+    polish_stats = None
+    polisher = None
+    polish_enabled = (
+        gateway.config.style_polish_enabled
+        if use_style_polish is None
+        else use_style_polish
+    )
+    if polish_enabled:
+        from .editor import PolishStats, StylePolisher
+
+        try:
+            polisher = StylePolisher.from_config(gateway.config, project)
+        except Exception as e:  # noqa: BLE001 - 配置/初始化失败也必须安全降级
+            polish_stats = PolishStats(service_error=str(e))
+            rep.warn(f"本地去 AI 腔初始化失败，本章将保留 Claude 初稿：{e}")
 
     while True:
         attempt += 1
+        # 每一稿都是独立候选稿，不能沿用上一稿的抽取或校验结果。
+        summary = new_state = None
+        review = None
         rep.step(
             ("重写" if revision_note else "写作")
             + f"第 {chapter} 章《{title}》（第 {attempt} 稿）",
@@ -107,6 +128,48 @@ def write_one_chapter(
             rep.error(f"写作失败：{e}")
             return None
 
+        # 语言后处理必须在记忆抽取和一致性校验之前。单段失败由
+        # StylePolisher 回退原段；服务整体不可用时保留整章 Claude 初稿。
+        if polisher is not None:
+            rep.step("本地 Qwen 正在按段落去 AI 腔")
+            try:
+                text, polish_stats = polisher.polish_chapter(text)
+                stats = polish_stats.as_dict()
+                rep.info(
+                    f"去 AI 腔完成：改写 {stats['changed']} 段，"
+                    f"原样保留 {stats['unchanged']} 段，"
+                    f"安全回退 {stats['rolled_back'] + stats['failed']} 段"
+                )
+                if stats["reasons"]:
+                    rep.info(
+                        "回退原因："
+                        + "、".join(
+                            f"{reason} {count}"
+                            for reason, count in stats["reasons"].items()
+                        )
+                    )
+            except Exception as e:  # noqa: BLE001 - 本地编辑不得阻断写章
+                from .editor.style_polisher import PolishStats
+
+                polish_stats = PolishStats(service_error=str(e))
+                rep.warn(f"本地去 AI 腔不可用，已保留 Claude 初稿：{e}")
+                polisher = None
+
+        # 正文末尾截断、引号未闭合等结构性硬伤必须在摘要调用前发现。
+        # 否则抽取器可能基于残稿返回空对象，并被误当成成功状态提交。
+        integrity_issues = body_integrity_checks(index=chapter, body=text)
+        if integrity_issues:
+            review = ReviewResult(chapter=chapter, issues=integrity_issues)
+            summary = new_state = None
+            if attempt <= max_rewrites:
+                notes = "\n".join(
+                    f"- [{i.category}] {i.message}" for i in integrity_issues
+                )
+                rep.warn(f"正文疑似不完整，正在重写：\n{notes}")
+                revision_note = notes
+                continue
+            break
+
         if consolidate_mem or do_review:
             rep.step("抽取摘要 / 更新世界状态")
             try:
@@ -121,8 +184,16 @@ def write_one_chapter(
             except LLMError as e:
                 rep.warn(f"记忆固化失败：{e}")
                 summary = new_state = None
+                review = ReviewResult(
+                    chapter=chapter,
+                    issues=[Issue(
+                        severity=Severity.ERROR,
+                        category="记忆固化",
+                        message=f"摘要或世界状态抽取无效，已阻止提交：{e}",
+                        source="system",
+                    )],
+                )
 
-        review = None
         if do_review and summary is not None and new_state is not None:
             rep.step("一致性校验")
             review = review_chapter(
@@ -131,7 +202,15 @@ def write_one_chapter(
                 new_state=new_state, body=text,
             )
 
-        if review is not None and review.has_errors and attempt <= max_rewrites:
+        # 只有正文/设定硬伤才值得重写。抽取 API 或 payload 失败属于技术故障，
+        # 重写正文无济于事，应保留正文并阻止记忆与索引提交。
+        if (
+            review is not None
+            and review.has_errors
+            and summary is not None
+            and new_state is not None
+            and attempt <= max_rewrites
+        ):
             notes = "\n".join(f"- [{i.category}] {i.message}" for i in review.errors)
             rep.warn(f"发现 {len(review.errors)} 处硬伤，正在重写：\n{notes}")
             revision_note = notes
@@ -149,7 +228,12 @@ def write_one_chapter(
     has_unresolved_errors = review is not None and review.has_errors
 
     # 固化入库：有未解决硬伤则不写进记忆，保留上一章干净状态
-    if consolidate_mem and new_state is not None and not has_unresolved_errors:
+    if (
+        consolidate_mem
+        and summary is not None
+        and new_state is not None
+        and not has_unresolved_errors
+    ):
         project.upsert_summary(summary)
         if update_world_state:
             project.save_state(new_state)
@@ -189,7 +273,19 @@ def write_one_chapter(
     if review is not None:
         project.save_review(review.to_dict())
         if review.has_errors:
-            rep.warn(f"仍存 {len(review.errors)} 处硬伤（重写额度已用尽，请人工处理）：")
+            memory_failed = any(
+                issue.category == "记忆固化" for issue in review.errors
+            )
+            if memory_failed:
+                rep.warn(
+                    f"记忆固化存在 {len(review.errors)} 处错误，"
+                    "正文已保存，但摘要、世界状态和向量索引均未提交："
+                )
+            else:
+                rep.warn(
+                    f"仍存 {len(review.errors)} 处硬伤"
+                    "（重写额度已用尽，请人工处理）："
+                )
             for i in review.errors:
                 rep.warn(f"· [{i.category}] {i.message}")
             if consolidate_mem:
@@ -202,7 +298,12 @@ def write_one_chapter(
             rep.info("一致性校验通过，无矛盾")
 
     # 索引
-    if store is not None and embedder is not None and not has_unresolved_errors:
+    if (
+        store is not None
+        and embedder is not None
+        and not has_unresolved_errors
+        and (not consolidate_mem or (summary is not None and new_state is not None))
+    ):
         try:
             rep.step("索引到向量库")
             n = index_chapter(store, embedder, chapter=chapter, text=text)
@@ -216,4 +317,5 @@ def write_one_chapter(
         "review": review.to_dict() if review is not None else None,
         "has_errors": has_unresolved_errors,
         "chars": len(text),
+        "polish": polish_stats.as_dict() if polish_stats is not None else None,
     }

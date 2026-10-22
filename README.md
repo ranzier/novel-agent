@@ -46,9 +46,29 @@ DASHSCOPE_API_KEY=sk-...
 # EMBED_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 # EMBED_MODEL=text-embedding-v3
 # EMBED_DIM=1024
+
+# 本地 Qwen 去 AI 腔（llama-server，默认启用）
+# STYLE_POLISH_ENABLED=true
+# STYLE_POLISH_BASE_URL=http://127.0.0.1:8080/v1
+# STYLE_POLISH_MODEL=qwen3-ai-style
+# STYLE_POLISH_CONCURRENCY=2
 ```
 
 > `DASHSCOPE_API_KEY` 缺失时，向量召回会静默降级，不影响立项 / 大纲 / 写作 / 校验等其它功能。
+
+去 AI 腔模型需另行启动；建议显式关闭 reasoning，并给 API 设置稳定别名：
+
+```bash
+llama-server \
+  -m "/Users/bilibili/Desktop/llm/Qwen3-8B-ai-style-Q4_K_M.gguf" \
+  -ngl 99 -c 4096 -np 2 \
+  --host 127.0.0.1 --port 8080 \
+  --alias qwen3-ai-style --reasoning off
+```
+
+写章时会在 Claude 初稿与记忆提取之间按段落调用本地模型。数字、数量、专名、
+否定关系或对白结构发生变化时自动保留原段；本地服务不可用时保留整章初稿。
+可用 `--no-style-polish` 跳过单次处理。
 
 ---
 
@@ -108,8 +128,8 @@ novel serve                  # 浏览器打开 http://127.0.0.1:8000
 |------|------|----------|
 | `init` | 立项：创意 → 设定圣经 + 初始角色库 | `-i` 创意（必填）、`-g` 题材、`-t` 书名 |
 | `outline` | 分层大纲：骨架 + 逐卷章节细纲 | `-v` 卷数、`-c` 每卷章数、`--skeleton-only` 只出骨架 |
-| `write` | 写单章（完整闭环） | `-c` 章号（0=下一章）、`-w` 字数、`--overwrite`、`--max-rewrites`、`--no-review`、`--no-vector`、`--no-consolidate` |
-| `run` | 无人值守批量续写 | `-n` 章数（0=写到结尾）、`-s` 起点、`-w` 字数、`--stop-on-error`、`--no-vector` |
+| `write` | 写单章（完整闭环） | `-c` 章号（0=下一章）、`-w` 字数、`--overwrite`、`--max-rewrites`、`--no-review`、`--no-vector`、`--no-consolidate`、`--no-style-polish` |
+| `run` | 无人值守批量续写 | `-n` 章数（0=写到结尾）、`-s` 起点、`-w` 字数、`--stop-on-error`、`--no-vector`、`--no-style-polish` |
 | `reindex` | 为已写章节补建向量索引 | `--rebuild` 清空重建 |
 | `status` | 查看设定、进度、世界状态 | `-b` 项目 slug |
 | `list` | 列出所有项目 | — |
@@ -125,7 +145,7 @@ novel serve                  # 浏览器打开 http://127.0.0.1:8000
 `write` 和 `run` 的每一章都会走这条流水线：
 
 ```
-节奏推算 → 向量召回 → 写正文 → 抽取摘要+更新世界状态 → 一致性校验
+节奏推算 → 向量召回 → 写正文 → 本地去 AI 腔 → 抽取摘要+更新世界状态 → 一致性校验
                                                           │
                               ┌─ 有硬伤且有重写额度 ─→ 带反馈重写（回到写正文）
                               │
@@ -196,5 +216,4 @@ web/                    # 前端（Vite + React + TypeScript）
 - 大纲是一次性生成固定卷数 / 章数；写到后期想加卷需手动调整 `outline.json`
 - 一致性校验基于"世界状态快照 + 规则 + LLM"，没有独立的实体关系知识图谱
 - 暂无自动化测试套件，质量靠人工审阅
-
 

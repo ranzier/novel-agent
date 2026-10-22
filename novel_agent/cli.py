@@ -268,13 +268,16 @@ def write(
     no_vector: bool = typer.Option(
         False, "--no-vector", help="跳过向量召回与索引"
     ),
+    no_style_polish: bool = typer.Option(
+        False, "--no-style-polish", help="跳过本地 Qwen 去 AI 腔后处理"
+    ),
     note: str = typer.Option(
         "", "--note", help="作者对本章的思路/要求（高优先级注入写作）"
     ),
 ) -> None:
     """写一章正文：注入设定+角色+本卷+近章原文+全局记忆，按细纲生成。
 
-    流程：写正文 → 固化抽取 → 一致性校验 →（有硬伤则重写）→ 保存。
+    流程：写正文 → 本地去 AI 腔 → 固化抽取 → 一致性校验 →（有硬伤则重写）→ 保存。
     """
     try:
         project = Project.open(book)
@@ -319,6 +322,7 @@ def write(
         do_review=not no_review,
         max_rewrites=max_rewrites,
         use_vector=not no_vector,
+        use_style_polish=False if no_style_polish else None,
         author_note=note,
         reporter=ConsoleReporter(console),
     )
@@ -345,11 +349,14 @@ def run(
         False, "--stop-on-error", help="某章重写后仍有硬伤就停止（默认继续）"
     ),
     no_vector: bool = typer.Option(False, "--no-vector", help="跳过向量召回与索引"),
+    no_style_polish: bool = typer.Option(
+        False, "--no-style-polish", help="跳过本地 Qwen 去 AI 腔后处理"
+    ),
     note: str = typer.Option(
         "", "--note", help="作者对这批章节的思路/要求（每章都会注入）"
     ),
 ) -> None:
-    """无人值守批量续写：按大纲连写多章，每章走完整闭环（节奏→写→召回→校验→固化→索引）。"""
+    """无人值守批量续写：每章走节奏、召回、写作、去 AI 腔、校验、固化和索引闭环。"""
     try:
         project = Project.open(book)
     except FileNotFoundError as e:
@@ -406,6 +413,7 @@ def run(
             do_review=True,
             max_rewrites=max_rewrites,
             use_vector=not no_vector,
+            use_style_polish=False if no_style_polish else None,
             author_note=note,
             reporter=ConsoleReporter(console),
         )

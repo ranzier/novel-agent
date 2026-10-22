@@ -147,6 +147,10 @@ export const api = {
       `/api/books/${slug}/chapters/${n}/resummarize`,
       { method: "POST" },
     ),
+  rebuildMemory: (slug: string, n: number) =>
+    req<TaskRef>(`/api/books/${slug}/chapters/${n}/rebuild-memory`, {
+      method: "POST",
+    }),
 
   // 长任务
   createBook: (body: { idea: string; genre?: string; title?: string }) =>
@@ -193,4 +197,12 @@ export const api = {
       "/api/config/test",
       { method: "POST" },
     ),
+  testStyleConfig: () =>
+    req<{
+      ok: boolean;
+      reply?: string;
+      error?: string;
+      rolled_back?: boolean;
+      problems?: string[];
+    }>("/api/config/test-style", { method: "POST" }),
 };

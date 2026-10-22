@@ -36,6 +36,7 @@ class WriteBody(BaseModel):
     no_review: bool = False
     no_vector: bool = False
     no_consolidate: bool = False
+    no_style_polish: bool = False
     max_rewrites: int = 0
     author_note: str = ""
 
@@ -47,6 +48,7 @@ class RunBody(BaseModel):
     max_rewrites: int = 0
     stop_on_error: bool = False
     no_vector: bool = False
+    no_style_polish: bool = False
     author_note: str = ""
 
 
@@ -55,6 +57,7 @@ class RewriteBody(BaseModel):
     no_review: bool = False
     no_vector: bool = False
     no_consolidate: bool = False
+    no_style_polish: bool = False
     max_rewrites: int = 0
     author_note: str = ""
 
@@ -117,6 +120,26 @@ def create_app() -> FastAPI:
             text = gw.complete("回复两个字：在线", max_tokens=32)
             return {"ok": True, "reply": text, "usage": gw.usage.as_dict()}
         except (RuntimeError, LLMError) as e:
+            return {"ok": False, "error": str(e)}
+
+    @app.post("/api/config/test-style")
+    def test_style_config():
+        """调用一次本地 Qwen，同时验证输出能否安全回填。"""
+        from ..editor.style_polisher import LocalStyleClient, validate_rewrite
+
+        source = "他站在门前，心里不由得涌起一阵复杂的情绪。"
+        try:
+            client = LocalStyleClient(Config.load())
+            client.check_available()
+            output = client.rewrite(source)
+            problems = validate_rewrite(source, output)
+            return {
+                "ok": not problems,
+                "reply": output,
+                "rolled_back": bool(problems),
+                "problems": list(problems),
+            }
+        except Exception as e:  # noqa: BLE001 - 配置测试应返回可读错误
             return {"ok": False, "error": str(e)}
 
     # ---- GET /api/genres ----
@@ -454,6 +477,129 @@ def create_app() -> FastAPI:
             "usage": gw.usage.as_dict(),
         }
 
+    @app.post("/api/books/{slug}/chapters/{n}/rebuild-memory")
+    def rebuild_chapter_memory(slug: str, n: int):
+        """从当前世界状态的下一章起，顺序补齐到目标章的完整记忆。
+
+        只读取已经落盘的正文，不重新写作，也不再次执行去 AI 腔。
+        必须顺序推进，因为 state.json 是滚动快照，不能跨过缺失章节。
+        """
+        p = _open_project(slug)
+        _guard_busy(slug)
+        written = set(p.existing_chapter_indices())
+        if n not in written:
+            raise HTTPException(status_code=404, detail=f"第 {n} 章不存在")
+
+        current = p.load_state().last_chapter
+        if current >= n:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"世界状态已经推进到第 {current} 章，无法从该快照安全重建"
+                    f"第 {n} 章；只能补齐状态之后的章节"
+                ),
+            )
+        missing = [i for i in range(current + 1, n + 1) if i not in written]
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"缺少第 {missing[0]} 章正文，不能跨章补全世界状态",
+            )
+
+        def work(rep):
+            from ..editor import body_integrity_checks, review_chapter
+            from ..llm import LLMError
+            from ..memory import consolidate, index_chapter
+
+            gw = _gateway()
+            bible = p.load_bible()
+            characters = p.load_characters()
+            outline = p.load_outline()
+            state = p.load_state()
+
+            embedder = store = None
+            try:
+                from ..memory import Embedder
+
+                embedder = Embedder(gw.config)
+                store = p.vector_store(embedder.dim)
+            except RuntimeError as e:
+                rep.warn(f"向量服务不可用，本次只补摘要和世界状态：{e}")
+
+            completed = 0
+            for chapter in range(state.last_chapter + 1, n + 1):
+                ch = outline.chapter(chapter)
+                raw = p.read_chapter(chapter)
+                if ch is None or raw is None:
+                    raise RuntimeError(f"第 {chapter} 章缺少正文或大纲，已停止补全")
+                lines = raw.splitlines()
+                if lines and lines[0].lstrip().startswith("#"):
+                    lines = lines[1:]
+                    while lines and not lines[0].strip():
+                        lines.pop(0)
+                body = "\n".join(lines).strip()
+
+                integrity = body_integrity_checks(index=chapter, body=body)
+                if integrity:
+                    details = "；".join(issue.message for issue in integrity)
+                    raise RuntimeError(
+                        f"第 {chapter} 章正文完整性检查失败：{details}"
+                    )
+
+                rep.step(f"补全第 {chapter} 章摘要 / 世界状态")
+                try:
+                    summary, new_state = consolidate(
+                        gw, title=bible.title, index=chapter,
+                        chapter_title=ch.title, body=body, prev_state=state,
+                        progression_label=bible.progression_label,
+                    )
+                except LLMError as e:
+                    raise RuntimeError(
+                        f"第 {chapter} 章记忆抽取失败，已停止且未跨章提交：{e}"
+                    ) from e
+
+                rep.step(f"校验第 {chapter} 章固化结果")
+                review = review_chapter(
+                    gw, bible=bible, characters=characters,
+                    prev_state=state, new_summary=summary,
+                    new_state=new_state, body=body,
+                )
+                p.save_review(review.to_dict())
+                if review.has_errors:
+                    details = "；".join(
+                        f"[{issue.category}] {issue.message}"
+                        for issue in review.errors
+                    )
+                    raise RuntimeError(
+                        f"第 {chapter} 章仍有硬伤，记忆未提交：{details}"
+                    )
+
+                # 每章校验成功后独立提交，再以它作为下一章的旧状态。
+                p.upsert_summary(summary)
+                p.save_state(new_state)
+                p.sync_outline_from_summary(summary)
+                state = new_state
+                completed += 1
+                rep.info(f"第 {chapter} 章记忆已推进：{summary.summary}")
+
+                if store is not None and embedder is not None:
+                    try:
+                        count = index_chapter(
+                            store, embedder, chapter=chapter, text=body
+                        )
+                        rep.info(f"第 {chapter} 章已建立 {count} 个向量分块")
+                    except Exception as e:  # noqa: BLE001
+                        rep.warn(f"第 {chapter} 章向量索引失败，可稍后重建：{e}")
+
+            rep.done(
+                f"记忆补全完成：第 {current + 1}~{n} 章",
+                completed=completed, target=n, usage=gw.usage.as_dict(),
+            )
+            return {"completed": completed, "target": n}
+
+        task = tasks.start("rebuild-memory", slug, work)
+        return {"task_id": task.id, "chapter": n}
+
     # ============ 长任务 ============
     def _gateway() -> "LLMGateway":  # noqa: F821
         from ..llm import LLMGateway
@@ -596,7 +742,9 @@ def create_app() -> FastAPI:
                 gw, p, chapter=chapter, title=ch.title, words=body.words,
                 consolidate_mem=not body.no_consolidate,
                 do_review=not body.no_review, max_rewrites=body.max_rewrites,
-                use_vector=not body.no_vector, author_note=body.author_note,
+                use_vector=not body.no_vector,
+                use_style_polish=False if body.no_style_polish else None,
+                author_note=body.author_note,
                 reporter=rep,
             )
             return result
@@ -630,7 +778,9 @@ def create_app() -> FastAPI:
                 gw, p, chapter=chapter, title=ch.title, words=body.words,
                 consolidate_mem=not body.no_consolidate,
                 do_review=not body.no_review, max_rewrites=body.max_rewrites,
-                use_vector=not body.no_vector, author_note=body.author_note,
+                use_vector=not body.no_vector,
+                use_style_polish=False if body.no_style_polish else None,
+                author_note=body.author_note,
                 update_world_state=is_latest,
                 reporter=rep,
             )
@@ -670,6 +820,7 @@ def create_app() -> FastAPI:
                     consolidate_mem=True, do_review=True,
                     max_rewrites=body.max_rewrites,
                     use_vector=not body.no_vector,
+                    use_style_polish=False if body.no_style_polish else None,
                     author_note=body.author_note, reporter=rep,
                 )
                 if r is None:

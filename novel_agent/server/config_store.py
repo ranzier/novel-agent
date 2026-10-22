@@ -24,6 +24,15 @@ from ..config import (
     DEFAULT_SUMMARY_COUNT,
     DEFAULT_RECALL_TOP_K,
     DEFAULT_RECALL_MIN_SCORE,
+    DEFAULT_STYLE_POLISH_BASE_URL,
+    DEFAULT_STYLE_POLISH_CONCURRENCY,
+    DEFAULT_STYLE_POLISH_ENABLED,
+    DEFAULT_STYLE_POLISH_MAX_CHARS,
+    DEFAULT_STYLE_POLISH_MAX_TOKENS,
+    DEFAULT_STYLE_POLISH_MIN_CHARS,
+    DEFAULT_STYLE_POLISH_MODEL,
+    DEFAULT_STYLE_POLISH_TEMPERATURE,
+    DEFAULT_STYLE_POLISH_TIMEOUT,
     PROJECT_ROOT,
 )
 
@@ -45,6 +54,15 @@ _FIELDS = {
     "CTX_RECALL_TOP_K": False,
     "CTX_RECALL_MIN_SCORE": False,
     "CTX_OUTLINE_RECAP": False,
+    "STYLE_POLISH_ENABLED": False,
+    "STYLE_POLISH_BASE_URL": False,
+    "STYLE_POLISH_MODEL": False,
+    "STYLE_POLISH_TIMEOUT": False,
+    "STYLE_POLISH_CONCURRENCY": False,
+    "STYLE_POLISH_MIN_CHARS": False,
+    "STYLE_POLISH_MAX_CHARS": False,
+    "STYLE_POLISH_MAX_TOKENS": False,
+    "STYLE_POLISH_TEMPERATURE": False,
 }
 
 
@@ -86,6 +104,15 @@ def get_config_view() -> dict:
         "CTX_RECALL_TOP_K": str(DEFAULT_RECALL_TOP_K),
         "CTX_RECALL_MIN_SCORE": str(DEFAULT_RECALL_MIN_SCORE),
         "CTX_OUTLINE_RECAP": str(DEFAULT_OUTLINE_RECAP),
+        "STYLE_POLISH_ENABLED": str(DEFAULT_STYLE_POLISH_ENABLED).lower(),
+        "STYLE_POLISH_BASE_URL": DEFAULT_STYLE_POLISH_BASE_URL,
+        "STYLE_POLISH_MODEL": DEFAULT_STYLE_POLISH_MODEL,
+        "STYLE_POLISH_TIMEOUT": str(DEFAULT_STYLE_POLISH_TIMEOUT),
+        "STYLE_POLISH_CONCURRENCY": str(DEFAULT_STYLE_POLISH_CONCURRENCY),
+        "STYLE_POLISH_MIN_CHARS": str(DEFAULT_STYLE_POLISH_MIN_CHARS),
+        "STYLE_POLISH_MAX_CHARS": str(DEFAULT_STYLE_POLISH_MAX_CHARS),
+        "STYLE_POLISH_MAX_TOKENS": str(DEFAULT_STYLE_POLISH_MAX_TOKENS),
+        "STYLE_POLISH_TEMPERATURE": str(DEFAULT_STYLE_POLISH_TEMPERATURE),
     }
     return out
 
@@ -140,6 +167,35 @@ def _write_env(values: dict[str, str]) -> None:
         _kv_or_comment("EMBED_BASE_URL", values.get("EMBED_BASE_URL", "")),
         _kv_or_comment("EMBED_MODEL", values.get("EMBED_MODEL", "")),
         _kv_or_comment("EMBED_DIM", values.get("EMBED_DIM", "")),
+        "",
+        "# 本地 Qwen 段落级去 AI 腔（llama.cpp OpenAI 兼容端点）",
+        _kv_or_comment(
+            "STYLE_POLISH_ENABLED", values.get("STYLE_POLISH_ENABLED", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_BASE_URL", values.get("STYLE_POLISH_BASE_URL", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_MODEL", values.get("STYLE_POLISH_MODEL", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_TIMEOUT", values.get("STYLE_POLISH_TIMEOUT", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_CONCURRENCY", values.get("STYLE_POLISH_CONCURRENCY", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_MIN_CHARS", values.get("STYLE_POLISH_MIN_CHARS", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_MAX_CHARS", values.get("STYLE_POLISH_MAX_CHARS", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_MAX_TOKENS", values.get("STYLE_POLISH_MAX_TOKENS", "")
+        ),
+        _kv_or_comment(
+            "STYLE_POLISH_TEMPERATURE", values.get("STYLE_POLISH_TEMPERATURE", "")
+        ),
         "",
         "# 可选：prompt 上下文参数，不填用内置默认",
         _kv_or_comment(

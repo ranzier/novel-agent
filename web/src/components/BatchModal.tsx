@@ -11,12 +11,14 @@ export function BatchModal({
     count: number;
     words: number;
     author_note: string;
+    no_style_polish: boolean;
   }) => void;
 }) {
   const [count, setCount] = useState(3);
   const [toEnd, setToEnd] = useState(false);
   const [words, setWords] = useState(2500);
   const [note, setNote] = useState("");
+  const [skipStylePolish, setSkipStylePolish] = useState(false);
 
   return (
     <div className="drawer-mask" onClick={onClose}>
@@ -72,6 +74,16 @@ export function BatchModal({
           逐章顺序生成，可在进度面板实时查看。
         </div>
 
+        <label className="row" style={{ gap: 8, cursor: "pointer", marginBottom: 14 }}>
+          <input
+            type="checkbox"
+            checked={skipStylePolish}
+            onChange={(e) => setSkipStylePolish(e.target.checked)}
+            style={{ width: "auto" }}
+          />
+          <span>这批章节跳过本地 Qwen 去 AI 腔</span>
+        </label>
+
         <div className="row" style={{ justifyContent: "flex-end" }}>
           <button onClick={onClose}>取消</button>
           <button
@@ -81,6 +93,7 @@ export function BatchModal({
                 count: toEnd ? 0 : count,
                 words,
                 author_note: note.trim(),
+                no_style_polish: skipStylePolish,
               })
             }
           >

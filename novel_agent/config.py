@@ -45,6 +45,17 @@ DEFAULT_RECALL_MIN_SCORE = 0.3    # 向量召回相似度阈值
 DEFAULT_OUTLINE_RECAP = 10        # 续写大纲时注入最近 N 章摘要作为前情
 DEFAULT_INJECT_NEXT_OUTLINE = True  # 写本章时注入下一章大纲作为"禁止提前写"的边界
 
+# 本地微调模型：只做段落级去 AI 腔，走 llama.cpp OpenAI 兼容端点。
+DEFAULT_STYLE_POLISH_ENABLED = True
+DEFAULT_STYLE_POLISH_BASE_URL = "http://127.0.0.1:8080/v1"
+DEFAULT_STYLE_POLISH_MODEL = "qwen3-ai-style"
+DEFAULT_STYLE_POLISH_TIMEOUT = 120.0
+DEFAULT_STYLE_POLISH_CONCURRENCY = 2
+DEFAULT_STYLE_POLISH_MIN_CHARS = 15
+DEFAULT_STYLE_POLISH_MAX_CHARS = 220
+DEFAULT_STYLE_POLISH_MAX_TOKENS = 512
+DEFAULT_STYLE_POLISH_TEMPERATURE = 0.2
+
 
 def _env_bool(key: str, default: bool) -> bool:
     raw = os.environ.get(key, "").strip().lower()
@@ -90,6 +101,16 @@ class Config:
     recall_min_score: float
     outline_recap: int
     inject_next_outline: bool
+    # 本地去 AI 腔后处理
+    style_polish_enabled: bool
+    style_polish_base_url: str
+    style_polish_model: str
+    style_polish_timeout: float
+    style_polish_concurrency: int
+    style_polish_min_chars: int
+    style_polish_max_chars: int
+    style_polish_max_tokens: int
+    style_polish_temperature: float
 
     @classmethod
     def load(cls) -> "Config":
@@ -135,6 +156,35 @@ class Config:
             ),
             inject_next_outline=_env_bool(
                 "CTX_INJECT_NEXT_OUTLINE", DEFAULT_INJECT_NEXT_OUTLINE
+            ),
+            style_polish_enabled=_env_bool(
+                "STYLE_POLISH_ENABLED", DEFAULT_STYLE_POLISH_ENABLED
+            ),
+            style_polish_base_url=(
+                os.environ.get("STYLE_POLISH_BASE_URL", "").strip()
+                or DEFAULT_STYLE_POLISH_BASE_URL
+            ),
+            style_polish_model=(
+                os.environ.get("STYLE_POLISH_MODEL", "").strip()
+                or DEFAULT_STYLE_POLISH_MODEL
+            ),
+            style_polish_timeout=_env_float(
+                "STYLE_POLISH_TIMEOUT", DEFAULT_STYLE_POLISH_TIMEOUT
+            ),
+            style_polish_concurrency=max(1, _env_int(
+                "STYLE_POLISH_CONCURRENCY", DEFAULT_STYLE_POLISH_CONCURRENCY
+            )),
+            style_polish_min_chars=max(1, _env_int(
+                "STYLE_POLISH_MIN_CHARS", DEFAULT_STYLE_POLISH_MIN_CHARS
+            )),
+            style_polish_max_chars=max(1, _env_int(
+                "STYLE_POLISH_MAX_CHARS", DEFAULT_STYLE_POLISH_MAX_CHARS
+            )),
+            style_polish_max_tokens=max(1, _env_int(
+                "STYLE_POLISH_MAX_TOKENS", DEFAULT_STYLE_POLISH_MAX_TOKENS
+            )),
+            style_polish_temperature=_env_float(
+                "STYLE_POLISH_TEMPERATURE", DEFAULT_STYLE_POLISH_TEMPERATURE
             ),
         )
 

@@ -1,0 +1,133 @@
+[
+  {
+    "chapter": 1,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「无名明军步卒」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 2,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「刘顺」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「老孙」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「圆脸后生」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「王守田」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「马回子」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 3,
+    "issues": []
+  },
+  {
+    "chapter": 4,
+    "issues": []
+  },
+  {
+    "chapter": 5,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「孟老汉」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「年轻匠人」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 6,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「周炮目」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「钱文焕」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「宁远把总」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「书吏」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "金手指",
+        "message": "主角仅凭山脊上听三声炮响，就精确判断出'装药过了三成五'并直接给出'两成八'的精准装药比例，一次即成、无需本土工匠反复试错，与'知识受工艺约束、技术落地需反复试错'的限制略有张力。爆破为其本职尚属合理，但听声辨出精确百分比的精度偏越界。",
+        "evidence": "头一门装药过了三成五…减到两成八再试",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 7,
+    "issues": [
+      {
+        "severity": "error",
+        "category": "记忆固化",
+        "message": "摘要或世界状态抽取无效，已阻止提交：记忆抽取缺少 summary 对象",
+        "evidence": "",
+        "source": "system"
+      }
+    ]
+  }
+]

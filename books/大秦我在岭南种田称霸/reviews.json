@@ -1,0 +1,362 @@
+[
+  {
+    "chapter": 1,
+    "issues": []
+  },
+  {
+    "chapter": 2,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「老卒」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "伏笔",
+        "message": "既定伏笔明确强调原身与穿越者同名'李恒'且巧合被刻意点出，但此处老卒称主角为'李二'，与'李恒'之名存在出入（若为排行俗称则需后文澄清，否则与同名设定冲突）",
+        "evidence": "连戈都握不稳的李二吧",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 3,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「王戊」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "金手指",
+        "message": "主角现代灵魂为农学/行政背景，金手指限定为'现代知识库+历史先知'，并不含秦律条文。本章对《戍律》《军爵律》具体条款（斩首抵罪、败中赐爵）的精熟运用虽以'身体记忆'解释，但被设定为超过资历最老什长（'把军律啃得比他还透'），略超原身可得知识范围，存在能力来源边界模糊之嫌。",
+        "evidence": "把军律啃得比他还透",
+        "source": "llm"
+      },
+      {
+        "severity": "warn",
+        "category": "伏笔",
+        "message": "原主李恒素以'连戈都握不稳的李二'怯懦闻名，本章借身体记忆翻出律条尚可圆，但'比什长还透'的军律造诣与一名怯懦戍卒的人设落差偏大，若后续不补'原身曾习律'之因，易与身份反差伏笔的内在逻辑产生张力。",
+        "evidence": "竟不知什么时候把军律啃得比他还透",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 4,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "本章自述《军爵律》'斩首一级赐爵一级'，且明言十九级'往上请爵都绰绰有余'，但结果仅进爵一级（公士），与所述爵制及自身论功描述自相矛盾",
+        "evidence": "斩首十九级…进爵一级——公士",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 5,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「陈广」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "伏笔",
+        "message": "上一章设定王戊与李恒存在权力角力且王戊由轻慢转忌惮，本章却交代'陈广资历仅次于王戊'确认王戊仍在屯中且地位最高，但全屯防疫危机中李恒以屯佐身份独自下三道令、统揽全局，作为更高资历者的王戊全程缺席、毫无反应，与既有权力张力伏笔略有脱节，疑似遗漏",
+        "evidence": "陈广在屯里资历仅次于王戊",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 6,
+    "issues": []
+  },
+  {
+    "chapter": 7,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "秦律军功爵奉行'斩一首爵一级'，若主角确斩获十九级首级，按既定'爵位皆按秦律运行'的硬规则，其爵位应远高于最低的公士，仅补屯佐与首级数明显不匹配（除非前文已交代折算/延迟授爵的原因）",
+        "evidence": "从溃败里挣出十九级首级",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 8,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「周吏」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「百越少女」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「戍卒」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "金手指",
+        "message": "曲辕犁从用戈尖画图到打成下地试用仅四日，且需打制弧形犁壁这类对秦代铁工艺要求较高的部件，速度偏快，可能触及'无法跳跃式碾压、须逐步落地'的限制边界",
+        "evidence": "第四日上，新犁打成了",
+        "source": "llm"
+      },
+      {
+        "severity": "warn",
+        "category": "金手指",
+        "message": "称速生杂粮'一个月就能见青，两个月有收成'，秦代可得作物（粟等）成熟期普遍三四个月，此处增产/速生时限偏理想化，疑似超出当时物料条件",
+        "evidence": "一个月就能见青，两个月有收成",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 9,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「斥候」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 10,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "依【力量体系】既定层级，公士与上造为相邻两级（公士·屯佐 → 上造·屯长），公士进上造仅为进一级，属正常晋爵；正文却将其称为'越级''越一级'，并强调'进爵一级是常例、越级要主官担干系'，与层级设定中两者相邻的关系自相矛盾。",
+        "evidence": "公士进上造。越一级",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 11,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「周吏」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 12,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「孙屯长」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 13,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「严某」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 14,
+    "issues": []
+  },
+  {
+    "chapter": 15,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "世界硬规则要求主角一切作为须在秦法体制框架内腾挪。作为最低阶军官（上造·屯长），擅自将流民编伍、配发盾矛、组建私人武装队伍，缺乏上级授权或体制名分的铺垫，可能逾越屯长权限并触碰秦律严管兵器之制，与'体制内腾挪'设定存在张力。",
+        "evidence": "练乡勇……把这些人编起来……守屯",
+        "source": "llm"
+      },
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "本章明言所编乡勇含'逃役下来的'戍卒更卒，而秦律对逃役、藏匿逃亡者惩处极严。主角公开收编逃役者充作武装而无任何规避体制风险的处理，与严守秦法体制的硬规则相抵触。",
+        "evidence": "有的是逃役下来的,当过更卒、戍过边",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 16,
+    "issues": []
+  },
+  {
+    "chapter": 17,
+    "issues": []
+  },
+  {
+    "chapter": 19,
+    "issues": []
+  },
+  {
+    "chapter": 20,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "称‘从公士到上造是越了一级’与既定层级不符：公士、上造在力量体系中为相邻两级（秦二十等爵第一、第二级），并未越级；本次上造→不更才是跳过簪袅的越级擢升。前半句表述与硬设定的层级顺序冲突。",
+        "evidence": "从公士到上造，是越了一级",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 21,
+    "issues": []
+  },
+  {
+    "chapter": 22,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「秦人老兵什长」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「越人青壮」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「山北寨使者」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      }
+    ]
+  },
+  {
+    "chapter": 25,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "伏笔",
+        "message": "周吏在既定设定中是博罗的守旧老吏（持续为难李恒的本乡势力），本章却出现在龙川县署堂角记录，未交代其为何离开博罗到郡尉/县令所在的龙川县堂，与'博罗老吏'的定位存在地点错位的疑点",
+        "evidence": "还有周吏。那守旧老吏缩在堂角",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 26,
+    "issues": []
+  },
+  {
+    "chapter": 27,
+    "issues": []
+  },
+  {
+    "chapter": 28,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "角色",
+        "message": "出现设定库外的新角色「赵佗亲随」，请确认是有意引入还是角色名漂移",
+        "evidence": "",
+        "source": "rule"
+      },
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "李恒为不更·乡啬夫，本章接虎符越级统领县城东西两营及城防卒伍，跳过公大夫·县尉一级。虽由令君赵佗以虎符临时授权、文中亦点明'于律'之疑并由赵佗担责，属秦制符令机制内的应急授权，但乡啬夫直接掌县城兵权对既定爵职层级仍有张力，需确认后续未将此临时兵权坐实为越级常态",
+        "evidence": "他一个外乡的乡啬夫，越级掌县城兵权",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 29,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "时间线",
+        "message": "李恒先称城外乱兵'一动半日就到'，要西营撑半日；但当夜乱兵便已涌至二十里山道，并在天亮前于隘口被火攻歼灭，半日的预估与同夜即交战的节奏略有张力（隘口位于途中可部分调和）",
+        "evidence": "城外乱兵一动，半日就到",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 30,
+    "issues": [
+      {
+        "severity": "warn",
+        "category": "设定",
+        "message": "硬规则力量体系中『不更·乡啬夫』与『公大夫·县尉/县丞』为相邻两级，本章却称此次擢升为『越级』并指『中间隔着公大夫的前一级』，凭空插入了既定体系中不存在的中间层级。爵位顺序未颠倒，但与简化层级表的相邻关系存在张力。",
+        "evidence": "从不更到公大夫,中间隔着公大夫的前一级",
+        "source": "llm"
+      }
+    ]
+  },
+  {
+    "chapter": 31,
+    "issues": [
+      {
+        "severity": "error",
+        "category": "记忆固化",
+        "message": "摘要或世界状态抽取无效，已阻止提交：记忆抽取缺少 summary 对象",
+        "evidence": "",
+        "source": "system"
+      }
+    ]
+  },
+  {
+    "chapter": 32,
+    "issues": [
+      {
+        "severity": "error",
+        "category": "记忆固化",
+        "message": "摘要或世界状态抽取无效，已阻止提交：记忆抽取结构修复后仍无效：首次错误=记忆抽取缺少 summary 对象；修复错误=new_state 除 last_chapter 外全为空，拒绝覆盖现有世界状态；顶层字段：summary, new_state",
+        "evidence": "",
+        "source": "system"
+      }
+    ]
+  }
+]
